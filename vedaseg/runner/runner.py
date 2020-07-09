@@ -1,12 +1,14 @@
-import torch
+
 import logging
 import os.path as osp
+
+import cv2
+import torch
 import torch.nn.functional as F
 import numpy as np
 from collections.abc import Iterable
 
 from vedaseg.utils.checkpoint import load_checkpoint, save_checkpoint
-
 from .registry import RUNNERS
 
 np.set_printoptions(precision=4)
@@ -101,7 +103,7 @@ class Runner(object):
         self.optim.step()
 
         with torch.no_grad():
-            
+
             '''
             import matplotlib.pyplot as plt
             pred = (prob[0]).permute(1, 2, 0).float().cpu().numpy()[:, :, 0]
@@ -117,6 +119,13 @@ class Runner(object):
             plt.imsave(label_name, label_, cmap='Greys')
             '''
             _, pred_label = torch.max(pred, dim=1)
+
+            # if self.iter % 20 == 0:
+            #     for i in range(4):
+            #         cv2.imwrite(
+            #             osp.join(self.workdir, 'pred%d_%d.png' % (i, self.iter)),
+            #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
+
             self.metric.add(pred_label.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
         if self.iter != 0 and self.iter % 10 == 0:
@@ -135,7 +144,15 @@ class Runner(object):
             pred = self.model(img)
 
             prob = pred.softmax(dim=1)
+
             _, pred_label = torch.max(prob, dim=1)
+
+            # if self.iter % 20 == 0:
+            #     for i in range(4):
+            #         cv2.imwrite(
+            #             osp.join(self.workdir, 'vpred%d_%d.png' % (i, self.iter)),
+            #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
+
             self.metric.add(pred_label.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
             logger.info('Validate, mIoU %.4f, IoUs %s' % (miou, ious))

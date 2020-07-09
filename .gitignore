@@ -119,3 +119,6 @@ workdir/
 
 # Pytorch
 *.pth
+
+analysis/*
+vedaseg/inference*

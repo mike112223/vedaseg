@@ -144,20 +144,28 @@ class RandomCrop:
 
 @TRANSFORMS.register_module
 class PadIfNeeded:
-    def __init__(self, height, width, image_value, mask_value):
-        self.height = height
-        self.width = width
+    def __init__(self, image_value, mask_value, size=None, size_divisor=None, scale_bias=None):
+        self.size = size
+        self.size_divisor = size_divisor
+        self.scale_bias = scale_bias
+
         self.image_value = image_value
         self.mask_value = mask_value
         self.channel = len(image_value)
 
+        assert (self.size is None) ^ (self.size_divisor is None)
+
     def __call__(self, image, mask):
         h, w, c = image.shape
 
-        assert h <= self.height and w <= self.width
+        if self.size:
+            assert h <= self.size[0] and w <= self.size[1]
+            target_height = h + max(self.size[0] - h, 0)
+            target_width = w + max(self.size[1] - w, 0)
 
-        target_height = h + max(self.height - h, 0)
-        target_width = w + max(self.width - w, 0)
+        elif self.size_divisor:
+            target_height = int(np.ceil(h / self.size_divisor) * self.size_divisor) + self.scale_bias
+            target_width = int(np.ceil(w / self.size_divisor) * self.size_divisor) + self.scale_bias
 
         image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
         mask_pad_value = np.reshape(np.array(self.mask_value, dtype=mask.dtype), [1, 1])
