@@ -121,13 +121,13 @@ class RandomCrop:
         target_width = w + max(self.width - w, 0)
 
         image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
-        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, len(mask)), dtype=mask.dtype), [len(mask), 1, 1])
+        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
 
         new_image = np.tile(image_pad_value, (target_height, target_width, 1))
-        new_mask = np.tile(mask_pad_value, (1, target_height, target_width))
+        new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
 
         new_image[:h, :w, :] = image
-        new_mask[:, :h, :w] = mask
+        new_mask[:h, :w, :] = mask
 
         # assert np.count_nonzero(mask != self.mask_value) == np.count_nonzero(new_mask != self.mask_value)
 
@@ -137,7 +137,7 @@ class RandomCrop:
         x2 = x1 + self.width
 
         new_image = new_image[y1:y2, x1:x2, :]
-        new_mask = new_mask[:, y1:y2, x1:x2]
+        new_mask = new_mask[y1:y2, x1:x2, :]
 
         return new_image, new_mask
 
@@ -168,13 +168,13 @@ class PadIfNeeded:
             target_width = int(np.ceil(w / self.size_divisor) * self.size_divisor) + self.scale_bias
 
         image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
-        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, len(mask)), dtype=mask.dtype), [len(mask), 1, 1])
+        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
 
         new_image = np.tile(image_pad_value, (target_height, target_width, 1))
-        new_mask = np.tile(mask_pad_value, (1, target_height, target_width))
+        new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
 
         new_image[:h, :w, :] = image
-        new_mask[:, :h, :w] = mask
+        new_mask[:h, :w, :] = mask
 
         # assert np.count_nonzero(mask != self.mask_value) == np.count_nonzero(new_mask != self.mask_value)
 
@@ -190,6 +190,19 @@ class HorizontalFlip:
         if random.random() > self.p:
             image = cv2.flip(image, 1)
             mask = cv2.flip(mask, 1)
+
+        return image, mask
+
+
+@TRANSFORMS.register_module
+class VerticalFlip:
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, image, mask):
+        if random.random() > self.p:
+            image = cv2.flip(image, 0)
+            mask = cv2.flip(mask, 0)
 
         return image, mask
 
@@ -269,6 +282,6 @@ class ColorJitter(tt.ColorJitter):
 class ToTensor:
     def __call__(self, image, mask):
         image = torch.from_numpy(image).permute(2, 0, 1)
-        mask = torch.from_numpy(mask)
+        mask = torch.from_numpy(mask).permute(2, 0, 1)
 
         return image, mask

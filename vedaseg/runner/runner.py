@@ -39,7 +39,7 @@ class Runner(object):
                  gpu=True,
                  test_cfg=None,
                  test_mode=False,
-                 save_fpfn=True,
+                 save_fpfn=False,
                  show_fpfn=False):
         self.loader = loader
         self.model = model
@@ -74,11 +74,11 @@ class Runner(object):
 
             with np.printoptions(precision=4, suppress=True):
                 print('precision:')
-                print(p)
+                print(p.transpose(2, 0, 1))
                 print('recall:')
-                print(r)
+                print(r.transpose(2, 0, 1))
                 print('false positive rate:')
-                print(fpr)
+                print(fpr.transpose(2, 0, 1))
 
         elif self.test_mode:
             self.validate_epoch()
@@ -121,18 +121,18 @@ class Runner(object):
 
         self.optim.zero_grad()
 
-        # for i in range(len(img)):
-        #     mean = (123.675, 116.280, 103.530)
-        #     std = (58.395, 57.120, 57.375)
-        #     mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
-        #     std = np.reshape(np.array(std, dtype=np.float32), [1, 1, 3])
-        #     denominator = np.reciprocal(std, dtype=np.float32)
-        #     cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
-        #     for j in range(len(label[i])):
-        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
+        for i in range(len(img)):
+            mean = (123.675, 116.280, 103.530)
+            std = (58.395, 57.120, 57.375)
+            mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
+            std = np.reshape(np.array(std, dtype=np.float32), [1, 1, 3])
+            denominator = np.reciprocal(std, dtype=np.float32)
+            cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
+            for j in range(len(label[i])):
+                cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
 
-        # import pdb
-        # pdb.set_trace()
+        import pdb
+        pdb.set_trace()
 
         if self.gpu:
             img = img.cuda()
@@ -256,11 +256,12 @@ class Runner(object):
 
         total_res = np.zeros(shape=(c_l, i_l, s_l, cl_l, 4))
         gt = np.zeros(len(self.loader['val']))
-        for sample_id, (img, label, ori_img) in enumerate(
+        for sample_id, (img, label, ori_img, file_name) in enumerate(
                 tqdm(self.loader['val'],
                      desc=f'Inference with different thresholds',
                      dynamic_ncols=True)
         ):
+            # print(file_name)
 
             # if sample_id not in (2, 3, 9, 92, 105, 111, 149, 155, 171, 183, 192, 197, 284, 298, 310, 328, 349, 386, 401):
             #     continue
@@ -348,7 +349,7 @@ class Runner(object):
                 else:
                     tfpn[i][3] += 1
 
-            if self.show_fpfn:
+            if self.show_fpfn or self.save_fpfn:
                 fp, fn = tfpn[i][1], tfpn[i][3]
                 self._show_fpfn(ori_img, i, pred_label[:, i], label[:, i], conf_thres, iou_thres, fp=fp, fn=fn, sample_id=sample_id)
 
@@ -408,7 +409,7 @@ class Runner(object):
             plt.imshow((255 * (label.cpu().numpy()[0] == 1)).astype(np.uint8))
 
             if self.save_fpfn:
-                plt.savefig(osp.join(self.workdir, '%d.png' % sample_id))
+                plt.savefig(osp.join(self.workdir, '%d_%d.png' % (sample_id, clsn)))
 
             if self.show_fpfn:
                 plt.show()
