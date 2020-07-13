@@ -16,7 +16,7 @@ from vedaseg.runner import build_runner
 from vedaseg.utils import MetricMeter, MultiLabelMetricMeter
 
 
-def assemble(cfg_fp, checkpoint='', test_mode=False):
+def assemble(cfg_fp, checkpoint='', test_mode=False, show_fpfn=False, save_fpfn=False):
     _, fullname = os.path.split(cfg_fp)
     fname, ext = os.path.splitext(fullname)
 
@@ -49,7 +49,7 @@ def assemble(cfg_fp, checkpoint='', test_mode=False):
     if cfg['data'].get('val'):
         val_tf = build_transform(cfg['data']['val']['transforms'])
         val_dataset = build_dataset(cfg['data']['val']['dataset'],
-                                    dict(transform=val_tf))
+                                    dict(transform=val_tf, infer=test_mode))
 
     logger.info('Assemble, Step 2, Build Dataloader')
     # 2.2 dataloader
@@ -106,6 +106,8 @@ def assemble(cfg_fp, checkpoint='', test_mode=False):
             gpu=gpu,
             test_cfg=cfg.get('test_cfg', None),
             test_mode=test_mode,
+            show_fpfn=show_fpfn,
+            save_fpfn=save_fpfn,
         )
     )
 

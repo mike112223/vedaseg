@@ -143,10 +143,10 @@ class CocoDataset(BaseDataset):
 
     def draw_mask(self, img, ann_info):
         if self.spec_class is not None:
-            dmasks = np.zeros(img.shape[:2], np.uint8)
+            dmasks = np.zeros((1, img.shape[0], img.shape[1]), np.uint8)
             for mask in ann_info['masks']:
                 mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
-                dmasks = cv2.drawContours(dmasks, [mask], -1, 1, cv2.FILLED)
+                cv2.drawContours(dmasks[0], [mask], -1, 1, cv2.FILLED)
         else:
             c = len(self.cat_ids)
             dmasks = np.zeros((c, img.shape[0], img.shape[1]), np.uint8)
@@ -174,7 +174,10 @@ class CocoDataset(BaseDataset):
 
         img, mask = self.process(img, dmasks)
 
-        mask = mask.long()
+        if self.spec_class is not None:
+            mask = mask.long()[0]
+        else:
+            mask = mask.long()
 
         if self.infer:
             return img, mask, ori_img

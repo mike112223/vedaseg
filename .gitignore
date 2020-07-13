@@ -122,3 +122,5 @@ workdir/
 
 analysis/*
 vedaseg/inference*
+
+nohup*
