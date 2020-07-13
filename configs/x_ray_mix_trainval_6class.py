@@ -59,14 +59,15 @@ data = dict(
             extra_super=True,
         ),
         transforms=[
-            dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            # dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='PadIfNeeded', size_divisor=32, scale_bias=1, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=16,
-            num_workers=4,
+            batch_size=1,
+            num_workers=1,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
@@ -266,4 +267,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '4,5'
+gpu_id = '0'

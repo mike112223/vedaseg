@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 from collections.abc import Iterable
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from vedaseg.utils.checkpoint import load_checkpoint, save_checkpoint
 from .registry import RUNNERS
@@ -60,6 +61,7 @@ class Runner(object):
         self.best_fg_iou = 0
 
         self.multilabel = 'multilabel' in self.metric.__class__.__name__.lower()
+        self.ncls = len(self.loader['val'].dataset.cat_ids) + 1
 
     def __call__(self, ap_ana=False,
                  conf_thresholds=None, iou_thresholds=None):
@@ -238,10 +240,12 @@ class Runner(object):
             logger.info('Test, mIoU %.4f, IoUs %s' % (miou, ious))
 
     def judge_epoch(self, conf_thresholds=None, iou_thresholds=None):
-        c_l, i_l, s_l = len(conf_thresholds), \
-                        len(iou_thresholds), \
-                        len(self.loader['val'])
-        precision = np.zeros(shape=(c_l, i_l))
+        c_l, i_l, s_l, cl_l = len(conf_thresholds), \
+                              len(iou_thresholds), \
+                              len(self.loader['val']), \
+                              self.ncls
+
+        precision = np.zeros(shape=(c_l, i_l, cl_l))
         recall = np.zeros_like(precision)
         tp_rates = np.zeros_like(precision)
         fp_rates = np.zeros_like(precision)
@@ -250,7 +254,7 @@ class Runner(object):
         fps = np.zeros_like(precision)
         fns = np.zeros_like(precision)
 
-        total_res = np.zeros(shape=(c_l, i_l, s_l, 4))
+        total_res = np.zeros(shape=(c_l, i_l, s_l, cl_l, 4))
         gt = np.zeros(len(self.loader['val']))
         for sample_id, (img, label, ori_img) in enumerate(
                 tqdm(self.loader['val'],
@@ -267,7 +271,7 @@ class Runner(object):
                                    iou_thresholds=iou_thresholds,
                                    ori_img=ori_img,
                                    sample_id=sample_id)
-            total_res[:, :, sample_id, :] = res
+            total_res[:, :, sample_id, :, :] = res
 
         total_res = total_res.sum(axis=2)
 
@@ -275,26 +279,25 @@ class Runner(object):
             for iou_idx, iou_thres in enumerate(iou_thresholds):
                 # tp, tn, fp, fn = self.ana_tpfn(gt,
                 #                                total_res[conf_idx, iou_idx, :])
-
-                tp, fp, tn, fn = total_res[conf_idx, iou_idx, :]
-
-                p, r = self.ana_pr(tp, tn, fp, fn)
-                tpr, fpr = self.ana_roc(tp, tn, fp, fn)
-                precision[conf_idx, iou_idx] = p
-                recall[conf_idx, iou_idx] = r
-                tp_rates[conf_idx, iou_idx] = tpr
-                fp_rates[conf_idx, iou_idx] = fpr
-                tps[conf_idx, iou_idx] = tp
-                tns[conf_idx, iou_idx] = tn
-                fps[conf_idx, iou_idx] = fp
-                fns[conf_idx, iou_idx] = fn
+                for c in range(self.ncls):
+                    tp, fp, tn, fn = total_res[conf_idx, iou_idx, c]
+                    p, r = self.ana_pr(tp, tn, fp, fn)
+                    tpr, fpr = self.ana_roc(tp, tn, fp, fn)
+                    precision[conf_idx, iou_idx, c] = p
+                    recall[conf_idx, iou_idx, c] = r
+                    tp_rates[conf_idx, iou_idx, c] = tpr
+                    fp_rates[conf_idx, iou_idx, c] = fpr
+                    tps[conf_idx, iou_idx, c] = tp
+                    tns[conf_idx, iou_idx, c] = tn
+                    fps[conf_idx, iou_idx, c] = fp
+                    fns[conf_idx, iou_idx, c] = fn
         return tps, tns, fps, fns, precision, recall, tp_rates, fp_rates
 
     def judge_batch(self,
                     img, label,
                     conf_thresholds=None, iou_thresholds=None, ori_img=None, sample_id=None):
 
-        res = np.zeros((len(conf_thresholds), len(iou_thresholds), 4))
+        res = np.zeros((len(conf_thresholds), len(iou_thresholds), self.ncls, 4))
 
         self.model.eval()
         with torch.no_grad():
@@ -303,53 +306,73 @@ class Runner(object):
                 label = label.cuda()
 
             pred = self.model(img)
-            prob = pred.softmax(dim=1)
+            # prob = pred.softmax(dim=1)
+
         for idx_c, conf_th in enumerate(conf_thresholds):
             for idx_i, iou_th in enumerate(iou_thresholds):
-                res[idx_c, idx_i] = self.judge_conf_map(img, prob, label,
+                res[idx_c, idx_i] = self.judge_conf_map(img, pred, label,
                                                         conf_thres=conf_th,
                                                         iou_thres=iou_th,
                                                         ori_img=ori_img,
                                                         sample_id=sample_id)
         return res
 
-    def judge_conf_map(self, img, conf_map, label, conf_thres=None, iou_thres=0.5, ori_img=None, sample_id=None):
+    def judge_conf_map(self, img, prob, label, conf_thres=None, iou_thres=0.5, ori_img=None, sample_id=None):
         # tp fp tn fn
-        tfpn = np.zeros(4)
+        tfpn = np.zeros((self.ncls, 4))
 
-        self.metric.reset()
+        prob = prob.sigmoid()
+        prob[:, 1:, :, :] *= prob[:, 0, :, :]
 
         if conf_thres is None:
-            _, pred_label = torch.max(conf_map, dim=1)
-        else:
-            prob = conf_map[:, 1, :, :]
-            pred_label = torch.zeros_like(prob).long()
-            pred_label[prob > conf_thres] = 1
-            pred_label[label == 255] = 0
+            conf_thres = 0.5
 
-        self.metric.add(pred_label.cpu().numpy(), label.cpu().numpy())
-        _, ious = self.metric.miou()
+        # prob = prob[:, 1:, :, :]
+        pred_label = torch.zeros_like(prob).long()
+        pred_label[prob > conf_thres] = 1
+        pred_label[label == 255] = 0
 
-        fg_iou = ious[-1]
+        ious = self.iou(pred_label.cpu().numpy(), label.cpu().numpy())
 
-        if (1 not in label):
-            if 1 not in pred_label:
-                tfpn[2] += 1
+        for i in range(self.ncls):
+            if (1 not in label[:, i]):
+                if 1 not in pred_label[:, i]:
+                    tfpn[i][2] += 1
+                else:
+                    tfpn[i][1] += 1
             else:
-                tfpn[1] += 1
-        else:
-            if 1 not in pred_label:
-                tfpn[3] += 1
-            elif fg_iou > iou_thres:
-                tfpn[0] += 1
-            else:
-                tfpn[3] += 1
+                if 1 not in pred_label[:, i]:
+                    tfpn[i][3] += 1
+                elif ious[i] > iou_thres:
+                    tfpn[i][0] += 1
+                else:
+                    tfpn[i][3] += 1
 
-        if self.show_fpfn:
-            fp, fn = tfpn[1], tfpn[3]
-            self._show_fpfn(ori_img, pred_label, label, conf_thres, iou_thres, fp=fp, fn=fn, sample_id=sample_id)
+            if self.show_fpfn:
+                fp, fn = tfpn[i][1], tfpn[i][3]
+                self._show_fpfn(ori_img, i, pred_label[:, i], label[:, i], conf_thres, iou_thres, fp=fp, fn=fn, sample_id=sample_id)
 
         return tfpn
+
+    def iou(self, pred, gt):
+        pred = pred.transpose(1, 0, 2, 3)
+        gt = gt.transpose(1, 0, 2, 3)
+        # print(pred.shape, gt.shape)
+
+        ious = []
+        for i in range(self.ncls):
+            sub_pred = pred[i]
+            sub_gt = gt[i]
+
+            mask = (sub_gt >= 0) & (sub_gt <= 1)
+            sub_pred = sub_pred[mask]
+            sub_gt = sub_gt[mask]
+
+            interactions = np.sum(sub_pred & sub_gt)
+            unions = np.sum(sub_pred | sub_gt)
+            ious.append((interactions / (unions + 1e-9)))
+
+        return ious
 
     @staticmethod
     def ana_pr(tp, tn, fp, fn):
@@ -363,7 +386,7 @@ class Runner(object):
         fp_rate = fp / (fp + tn + sys.float_info.min)
         return tp_rate, fp_rate
 
-    def _show_fpfn(self, img, pred, label, conf_thres, iou_thres, fp=None, fn=None, sample_id=None):
+    def _show_fpfn(self, img, clsn, pred, label, conf_thres, iou_thres, fp=None, fn=None, sample_id=None):
         # label[label == 255] = 0
 
         # img = img[0][:, :, (2, 1, 0)].numpy()
@@ -371,11 +394,12 @@ class Runner(object):
         # img = self.draw_mask(img, (label.cpu().numpy()[0] == 1), c=(255, 0, 0))
 
         if fp or fn:
+
             plt.figure(num=sample_id, figsize=(25, 8))
-            plt.suptitle('conf %.2f & iou %.2f & %s' % (conf_thres, iou_thres, 'fp' if fp else 'fn'))
+            plt.suptitle('cls %d & conf %.2f & iou %.2f & %s' % (clsn, conf_thres, iou_thres, 'fp' if fp else 'fn'))
             plt.subplot(1, 3, 1)
             plt.title('img')
-            plt.imshow(img[0][:, :, (2, 1, 0)])
+            plt.imshow(img[0][:, :, (2, 1, 0)].int())
             plt.subplot(1, 3, 2)
             plt.title('pred')
             plt.imshow((255 * pred.cpu().numpy()[0]).astype(np.uint8))
