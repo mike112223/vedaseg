@@ -40,7 +40,7 @@ def main():
     # os.makedirs(save_path, exist_ok=True)
 
     tf = build_transform(cfg['data']['val']['transforms'])
-    datasets = build_dataset(cfg['data']['val']['dataset'], dict(transform=tf))
+    datasets = build_dataset(cfg['data']['val']['dataset'], dict(transform=tf, infer=True))
     loader = build_dataloader(cfg['data']['val']['loader'], dict(dataset=datasets))
 
     model = build_model(cfg['model'])

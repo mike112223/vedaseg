@@ -72,3 +72,58 @@ class MetricMeter(object):
 
     def reset(self):
         self.confusion_matrix = np.zeros((self.nclasses,) * 2)
+
+
+class MultiLabelMetricMeter(object):
+    """MetricMeter
+    """
+    def __init__(self, nclasses, extra_super=False):
+        self.nclasses = nclasses
+        self.confusion_matrix = np.zeros((self.nclasses, 2))
+        self.extra_super = extra_super
+
+    def miou(self):
+        IoUs = (self.confusion_matrix[:, 0] + 1e-9) / (self.confusion_matrix[:, 1] + 1e-9)
+        mIoU = np.nanmean(IoUs)
+        return mIoU, IoUs
+
+    def _generate_matrix(self, pred, gt):
+        b, c, h, w = gt.shape
+        pred = pred.transpose(1, 0, 2, 3)
+        gt = gt.transpose(1, 0, 2, 3)
+        # print(pred.shape, gt.shape)
+
+        confusion_matrix = []
+        for i in range(c):
+            sub_pred = pred[i]
+            sub_gt = gt[i]
+
+            mask = (sub_gt >= 0) & (sub_gt <= 1)
+            sub_pred = sub_pred[mask]
+            sub_gt = sub_gt[mask]
+
+            sub_pred = 1 / (1 + np.exp(-sub_pred))
+
+            if self.extra_super and i != 0:
+                fg_pred = pred[0][mask]
+                fg_pred = 1 / (1 + np.exp(-fg_pred))
+                sub_pred *= fg_pred
+
+            sub_pred = sub_pred > 0.5
+            sub_gt = sub_gt == 1
+
+            interactions = np.sum(sub_pred & sub_gt)
+            unions = np.sum(sub_pred | sub_gt)
+
+            confusion_matrix.append((interactions, unions))
+        confusion_matrix = np.array(confusion_matrix)
+        # print(confusion_matrix)
+
+        return confusion_matrix
+
+    def add(self, pred, gt):
+        assert pred.shape == gt.shape
+        self.confusion_matrix += self._generate_matrix(pred, gt)
+
+    def reset(self):
+        self.confusion_matrix = np.zeros((self.nclasses, 2))

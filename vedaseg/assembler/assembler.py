@@ -13,7 +13,7 @@ from vedaseg.lr_schedulers import build_lr_scheduler
 from vedaseg.models import build_model
 from vedaseg.optims import build_optim
 from vedaseg.runner import build_runner
-from vedaseg.utils import MetricMeter
+from vedaseg.utils import MetricMeter, MultiLabelMetricMeter
 
 
 def assemble(cfg_fp, checkpoint='', test_mode=False):
@@ -90,13 +90,16 @@ def assemble(cfg_fp, checkpoint='', test_mode=False):
 
     logger.info('Assemble, Step 7, Build Runner')
     # 7. runner
+    metric = MultiLabelMetricMeter(cfg['nclasses'], extra_super=True) if cfg.get('multilabel', False) \
+        else MetricMeter(cfg['nclasses'])
+
     runner = build_runner(
         cfg['runner'],
         dict(
             loader=loader,
             model=model,
             criterion=criterion,
-            metric=MetricMeter(cfg['nclasses']),
+            metric=metric,
             optim=optim,
             lr_scheduler=lr_scheduler,
             workdir=cfg['workdir'],

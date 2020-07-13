@@ -1,4 +1,5 @@
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -8,7 +9,7 @@ from .sampler import build_sampler
 
 
 @CRITERIA.register_module
-class CrossEntropyLoss(nn.Module):
+class RectBCELoss(nn.Module):
 
     def __init__(self,
                  sampler=None,
@@ -17,7 +18,7 @@ class CrossEntropyLoss(nn.Module):
                  reduction='mean',
                  ignore_index=255,
                  loss_weight=1.0):
-        super(CrossEntropyLoss, self).__init__()
+        super(RectBCELoss, self).__init__()
         self.balanced = balanced
         self.weight = weight
         self.reduction = reduction
@@ -28,7 +29,6 @@ class CrossEntropyLoss(nn.Module):
             self.sampler = build_sampler(sampler)
         else:
             self.sampler = None
-
 
     def forward(self,
                 cls_score,
@@ -52,35 +52,12 @@ class CrossEntropyLoss(nn.Module):
         else:
             weight = None
 
-        if self.sampler is not None:
-            sample_mask = self.sampler.sample(cls_score.detach(), label.detach())
-            label[sample_mask == 0] = self.ignore_index
+        mask = (label != self.ignore_index)
 
-        print('pos num {} / {} / {}'.format((label==1).sum(), (label==0).sum(), (label!=self.ignore_index).sum()))
+        mask[:, 1:, :, :] &= label[:, 0:1, :, :] == 1
 
-        # loss_cls = self.cross_entropy(
-        #     cls_score, label, sample_mask,
-        #     weight=weight, reduction=reduction, avg_factor=sample_mask.sum())
-
-        loss_cls = self.loss_weight * F.cross_entropy(
-            cls_score, label, weight=weight,
-            reduction=reduction, ignore_index=self.ignore_index)
+        loss_cls = self.loss_weight * F.binary_cross_entropy_with_logits(
+            cls_score[mask], label.float()[mask], weight=weight,
+            reduction=reduction)
 
         return loss_cls
-
-    # def cross_entropy(self, pred, label, mask,
-    #                   weight=None, reduction='mean', avg_factor=None):
-
-    #     # element-wise losses
-    #     loss = F.cross_entropy(
-    #         pred, label, weight=weight, reduction='none')
-
-    #     import pdb
-    #     pdb.set_trace()
-
-    #     loss *= mask.float()
-
-    #     loss = weight_reduce_loss(
-    #         loss, weight=None, reduction=reduction, avg_factor=avg_factor)
-
-    #     return loss

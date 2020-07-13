@@ -3,6 +3,7 @@ import os
 import os.path as osp
 
 import cv2
+import torch
 import numpy as np
 from pycocotools.coco import COCO
 from .base import BaseDataset
@@ -19,7 +20,8 @@ class CocoDataset(BaseDataset):
                  spec_class=None,
                  filter_empty_gt=True,
                  transform=None,
-                 infer=False):
+                 infer=False,
+                 extra_super=False):
         self.ann_file = ann_file
         self.data_root = data_root
         self.img_prefix = img_prefix
@@ -27,6 +29,7 @@ class CocoDataset(BaseDataset):
         self.filter_empty_gt = filter_empty_gt
         self.transform = transform
         self.infer = infer
+        self.extra_super = extra_super
 
         if isinstance(self.spec_class, int):
             self.spec_class = [self.spec_class]
@@ -49,6 +52,7 @@ class CocoDataset(BaseDataset):
         self.cat_ids = self.coco.getCatIds()
         self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
         self.img_ids = self.coco.getImgIds()
+
         data_infos = []
         for i in self.img_ids:
             info = self.coco.loadImgs([i])[0]
@@ -132,25 +136,46 @@ class CocoDataset(BaseDataset):
             masks=gt_masks_ann,
             seg_map=seg_map)
 
+        # import pdb
+        # pdb.set_trace()
+
         return ann
+
+    def draw_mask(self, img, ann_info):
+        if self.spec_class is not None:
+            dmasks = np.zeros(img.shape[:2], np.uint8)
+            for mask in ann_info['masks']:
+                mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
+                dmasks = cv2.drawContours(dmasks, [mask], -1, 1, cv2.FILLED)
+        else:
+            c = len(self.cat_ids)
+            dmasks = np.zeros((c, img.shape[0], img.shape[1]), np.uint8)
+            for mask, label in zip(ann_info['masks'], ann_info['labels']):
+                mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
+                cv2.drawContours(dmasks[label], [mask], -1, 1, cv2.FILLED)
+
+            if self.extra_super:
+                fmask = np.max(dmasks, axis=0)[None, :, :]
+                dmasks = np.concatenate([fmask, dmasks])
+
+        return dmasks
 
     def __getitem__(self, idx):
         img_info = self.data_infos[idx]
         ann_info = self.get_ann_info(idx)
+        # print(idx, img_info)
 
         img = cv2.imread(img_info['filename']).astype(np.float32)
         ori_img = img.copy()
 
-        dmasks = np.zeros(img.shape[:2], np.uint8)
-        for mask in ann_info['masks']:
-            mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
-            dmasks = cv2.drawContours(dmasks, [mask], -1, 1, cv2.FILLED)
+        # cv2.imwrite('workdir/debug/img_%d.png' % idx, ori_img.astype(np.uint8))
+
+        dmasks = self.draw_mask(img, ann_info)
 
         img, mask = self.process(img, dmasks)
+
         mask = mask.long()
 
-        # cv2.imwrite('workdir/x_ray/img_%d.png' % idx, img.numpy().transpose((1, 2, 0)).astype(np.uint8))
-        # cv2.imwrite('workdir/x_ray/label_%d.png' % idx, mask.numpy().astype(np.uint8) * 255)
         if self.infer:
             return img, mask, ori_img
         else:

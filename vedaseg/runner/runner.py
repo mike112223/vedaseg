@@ -35,7 +35,7 @@ class Runner(object):
                  snapshot_interval=1,
                  gpu=True,
                  test_cfg=None,
-                 test_mode=False):
+                 test_mode=False,):
         self.loader = loader
         self.model = model
         self.criterion = criterion
@@ -51,18 +51,22 @@ class Runner(object):
         self.test_cfg = test_cfg
         self.test_mode = test_mode
 
+        self.best_fg_iou = 0
+
+        self.multilabel = 'multilabel' in self.metric.__class__.__name__.lower()
+
     def __call__(self):
         if self.test_mode:
-            self.test_epoch()
+            self.validate_epoch()
         else:
             assert self.trainval_ratio > 0
             for epoch in range(self.start_epoch, self.max_epochs):
                 self.train_epoch()
-                self.save_checkpoint(self.workdir)
                 if self.trainval_ratio > 0 \
                         and (epoch + 1) % self.trainval_ratio == 0 \
                         and self.loader.get('val'):
                     self.validate_epoch()
+                    self.save_checkpoint(self.workdir)
 
     def train_epoch(self):
         logger.info('Epoch %d, Start training' % self.epoch)
@@ -93,6 +97,19 @@ class Runner(object):
 
         self.optim.zero_grad()
 
+        # for i in range(len(img)):
+        #     mean = (123.675, 116.280, 103.530)
+        #     std = (58.395, 57.120, 57.375)
+        #     mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
+        #     std = np.reshape(np.array(std, dtype=np.float32), [1, 1, 3])
+        #     denominator = np.reciprocal(std, dtype=np.float32)
+        #     cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
+        #     for j in range(len(label[i])):
+        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
+
+        # import pdb
+        # pdb.set_trace()
+
         if self.gpu:
             img = img.cuda()
             label = label.cuda()
@@ -118,7 +135,9 @@ class Runner(object):
             label_name = 'output/%d_gt.jpg' % random_num
             plt.imsave(label_name, label_, cmap='Greys')
             '''
-            _, pred_label = torch.max(pred, dim=1)
+            if not self.multilabel:
+                print('!!!!!!!!!!!')
+                _, pred = torch.max(pred, dim=1)
 
             # if self.iter % 20 == 0:
             #     for i in range(4):
@@ -126,7 +145,7 @@ class Runner(object):
             #             osp.join(self.workdir, 'pred%d_%d.png' % (i, self.iter)),
             #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
 
-            self.metric.add(pred_label.cpu().numpy(), label.cpu().numpy())
+            self.metric.add(pred.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
         if self.iter != 0 and self.iter % 10 == 0:
             logger.info(
@@ -135,6 +154,7 @@ class Runner(object):
                  miou, ious))
 
     def validate_batch(self, img, label):
+
         self.model.eval()
         with torch.no_grad():
             if self.gpu:
@@ -143,9 +163,9 @@ class Runner(object):
 
             pred = self.model(img)
 
-            prob = pred.softmax(dim=1)
-
-            _, pred_label = torch.max(prob, dim=1)
+            if not self.multilabel:
+                prob = pred.softmax(dim=1)
+                _, pred = torch.max(prob, dim=1)
 
             # if self.iter % 20 == 0:
             #     for i in range(4):
@@ -153,7 +173,7 @@ class Runner(object):
             #             osp.join(self.workdir, 'vpred%d_%d.png' % (i, self.iter)),
             #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
 
-            self.metric.add(pred_label.cpu().numpy(), label.cpu().numpy())
+            self.metric.add(pred.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
             logger.info('Validate, mIoU %.4f, IoUs %s' % (miou, ious))
 
@@ -200,6 +220,14 @@ class Runner(object):
                         filename_tmpl='epoch_{}.pth',
                         save_optimizer=True,
                         meta=None):
+
+        _, ious = self.metric.miou()
+
+        best_flag = 0
+        if np.mean(ious[1:]) > self.best_fg_iou:
+            self.best_fg_iou = np.mean(ious[1:])
+            best_flag = 1
+
         if self.epoch % self.snapshot_interval == 0 or self.epoch == self.max_epochs:
             if meta is None:
                 meta = dict(epoch=self.epoch, iter=self.iter, lr=self.lr)
@@ -207,6 +235,21 @@ class Runner(object):
                 meta.update(epoch=self.epoch, iter=self.iter, lr=self.lr)
 
             filename = filename_tmpl.format(self.epoch)
+            filepath = osp.join(out_dir, filename)
+            optimizer = self.optim if save_optimizer else None
+            logger.info('Save checkpoint %s', filename)
+            save_checkpoint(self.model,
+                            filepath,
+                            optimizer=optimizer,
+                            meta=meta)
+
+        if best_flag:
+            if meta is None:
+                meta = dict(epoch=self.epoch, iter=self.iter, lr=self.lr)
+            else:
+                meta.update(epoch=self.epoch, iter=self.iter, lr=self.lr)
+
+            filename = filename_tmpl.format('best')
             filepath = osp.join(out_dir, filename)
             optimizer = self.optim if save_optimizer else None
             logger.info('Save checkpoint %s', filename)

@@ -58,14 +58,14 @@ data = dict(
             spec_class=3,
         ),
         transforms=[
-            dict(type='PadIfNeeded', size_divisor=32, scale_bias=1, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=1,
-            num_workers=1,
+            batch_size=16,
+            num_workers=4,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
@@ -249,7 +249,7 @@ criterion = dict(type='CrossEntropyLoss', ignore_index=ignore_label)
 optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=0.0001)
 
 # 6. lr scheduler
-max_epochs = 100
+max_epochs = 50
 lr_scheduler = dict(
     type='PolyLR',
     warm_up=50,
@@ -264,4 +264,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '0'
+gpu_id = '8,9'

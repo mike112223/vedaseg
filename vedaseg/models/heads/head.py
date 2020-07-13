@@ -26,7 +26,8 @@ class Head(nn.Module):
                  act_cfg=dict(type='Relu', inplace=True),
                  num_convs=0,
                  upsample=None,
-                 dropouts=None):
+                 dropouts=None,
+                 custom_init=None):
         super().__init__()
 
         if num_convs > 0:
@@ -51,6 +52,14 @@ class Head(nn.Module):
         self.block = nn.Sequential(*layers)
         logger.info('Head init weights')
         init_weights(self.modules())
+        if custom_init is not None:
+            custom_conv = -1
+            if upsample:
+                custom_conv = -2
+            logger.info(f'Head init weights:{custom_init}')
+            nn.init.constant_(self.block[custom_conv].weight, 0)
+            self.block[custom_conv].bias = nn.Parameter(
+                torch.Tensor(custom_init))  # noqa
 
     def forward(self, x):
 

@@ -8,7 +8,7 @@ seed = 0
 logger = dict(
     handlers=(
         dict(type='StreamHandler', level='INFO'),
-        # dict(type='FileHandler', level='INFO'),
+        dict(type='FileHandler', level='INFO'),
     ),
 )
 
@@ -20,6 +20,7 @@ logger = dict(
 # )
 
 test_cfg = dict()
+multilabel = True
 
 img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.375))
 ignore_label = 255
@@ -33,7 +34,7 @@ data = dict(
             ann_file='round2_mix_train.json',
             data_root=dataset_root,
             img_prefix='jinnan2_round2_train_20190401',
-            spec_class=3,
+            extra_super=True,
         ),
         transforms=[
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -42,7 +43,7 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
+            batch_size=16,
             num_workers=4,
             shuffle=True,
             drop_last=False,
@@ -55,17 +56,17 @@ data = dict(
             ann_file='round2_mix_val.json',
             data_root=dataset_root,
             img_prefix='jinnan2_round2_train_20190401',
-            spec_class=3,
+            extra_super=True,
         ),
         transforms=[
-            dict(type='PadIfNeeded', size_divisor=32, scale_bias=1, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=1,
-            num_workers=1,
+            batch_size=16,
+            num_workers=4,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
@@ -74,7 +75,7 @@ data = dict(
 )
 
 # 3. model
-nclasses = 2
+nclasses = 6
 model = dict(
     # model/encoder
     encoder=dict(
@@ -236,6 +237,7 @@ model = dict(
             mode='bilinear',
             align_corners=True
         ),
+        # custom_init=[-4.59, -4.59, -4.59, -4.59, -4.59]
     )
 )
 
@@ -243,10 +245,10 @@ model = dict(
 resume = None
 
 # 4. criterion
-criterion = dict(type='CrossEntropyLoss', ignore_index=ignore_label)
+criterion = dict(type='RectBCELoss', ignore_index=ignore_label)
 
 # 5. optim
-optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=0.0001)
+optimizer = dict(type='SGD', lr=0.001, momentum=0.9, weight_decay=0.0001)
 
 # 6. lr scheduler
 max_epochs = 100
@@ -264,4 +266,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '0'
+gpu_id = '6,7'
