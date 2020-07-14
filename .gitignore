@@ -123,4 +123,4 @@ workdir/
 analysis/*
 vedaseg/inference*
 
-nohup*
+nohup.out
