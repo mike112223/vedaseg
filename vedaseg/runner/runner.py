@@ -119,18 +119,18 @@ class Runner(object):
 
         self.optim.zero_grad()
 
-#        for i in range(len(img)):
-#            mean = (123.675, 116.280, 103.530)
-#            std = (58.395, 57.120, 57.375)
-#            mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
-#            std = np.reshape(np.array(std, dtype=np.float32), [1, 1, 3])
-#            denominator = np.reciprocal(std, dtype=np.float32)
-#            cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
-#            for j in range(len(label[i])):
-#                cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
+        # for i in range(len(img)):
+        #     mean = (123.675, 116.280, 103.530)
+        #     std = (58.395, 57.120, 57.375)
+        #     mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
+        #     std = np.reshape(np.array(std, dtype=np.float32), [1, 1, 3])
+        #     denominator = np.reciprocal(std, dtype=np.float32)
+        #     cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
+        #     for j in range(len(label[i])):
+        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
 
-#        import pdb
-#        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         if self.gpu:
             img = img.cuda()
