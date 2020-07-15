@@ -21,7 +21,8 @@ class CocoDataset(BaseDataset):
                  filter_empty_gt=True,
                  transform=None,
                  infer=False,
-                 extra_super=False):
+                 extra_super=False,
+                 rand_same=False):
         self.ann_file = ann_file
         self.data_root = data_root
         self.img_prefix = img_prefix
@@ -30,6 +31,7 @@ class CocoDataset(BaseDataset):
         self.transform = transform
         self.infer = infer
         self.extra_super = extra_super
+        self.rand_same = rand_same
 
         if isinstance(self.spec_class, int):
             self.spec_class = [self.spec_class]
@@ -179,10 +181,13 @@ class CocoDataset(BaseDataset):
         return dmasks
 
     def _rand_another(self, idx):
-        pool = np.where(self.flag != self.flag[idx])[0]
+        if self.rand_same:
+            pool = np.where(self.norm_flag == self.norm_flag[idx])[0]
+        else:
+            pool = np.where(self.norm_flag != self.norm_flag[idx])[0]
         return np.random.choice(pool)
 
-    def __getitem__(self, idx):
+    def _get_img_info(self, idx):
         img_info = self.data_infos[idx]
         ann_info = self.get_ann_info(idx)
         # print(idx, img_info)
@@ -190,11 +195,21 @@ class CocoDataset(BaseDataset):
         img = cv2.imread(img_info['filename']).astype(np.float32)
         ori_img = img.copy()
 
-        # cv2.imwrite('workdir/debug/img_%d.png' % idx, ori_img.astype(np.uint8))
-
         dmasks = self.draw_mask(img, ann_info)
 
-        img, mask = self.process(img, dmasks)
+        return ori_img, img, dmasks, img_info['file_name']
+
+    def __getitem__(self, idx):
+
+        ori_img, img, dmasks, path = self._get_img_info(idx)
+
+        if len(self.transform.bitransforms) > 0:
+            idx2 = self._rand_another(idx)
+            ori_img2, img2, dmasks2, _ = self._get_img_info(idx2)
+        else:
+            img2, dmasks2 = None, None
+
+        img, mask = self.process(img, dmasks, img2, dmasks2)
 
         if self.spec_class is not None:
             mask = mask.long()[0]
@@ -202,6 +217,6 @@ class CocoDataset(BaseDataset):
             mask = mask.long()
 
         if self.infer:
-            return img, mask, ori_img, img_info['file_name']
+            return img, mask, ori_img, path
         else:
             return img, mask

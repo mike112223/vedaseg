@@ -42,12 +42,16 @@ def assemble(cfg_fp, checkpoint='', test_mode=False, show_fpfn=False, save_fpfn=
     logger.info('Assemble, Step 1, Build Dataset')
     # 2. data
     ## 2.1 dataset
-    train_tf = build_transform(cfg['data']['train']['transforms'])
+    train_tf = build_transform(
+        cfg['data']['train']['transforms'],
+        cfg['data']['train'].get('bitransforms', None))
     train_dataset = build_dataset(cfg['data']['train']['dataset'],
                                   dict(transform=train_tf))
 
     if cfg['data'].get('val'):
-        val_tf = build_transform(cfg['data']['val']['transforms'])
+        val_tf = build_transform(
+            cfg['data']['val']['transforms'],
+            cfg['data']['val'].get('bitransforms', None))
         val_dataset = build_dataset(cfg['data']['val']['dataset'],
                                     dict(transform=val_tf, infer=test_mode))
 

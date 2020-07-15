@@ -25,12 +25,12 @@ CV2_BORDER_MODE = {
 
 
 class Compose:
-    def __init__(self, transforms, bitransforms=None):
+    def __init__(self, transforms, bitransforms=[]):
         self.transforms = transforms
         self.bitransforms = bitransforms
 
     def __call__(self, img1, mask1, img2=None, mask2=None):
-        if self.bitransforms is not None:
+        if len(self.bitransforms) > 0:
             for t in self.bitransforms:
                 img1, mask1 = t(img1, mask1, img2, mask2)
 
@@ -192,7 +192,7 @@ class HorizontalFlip:
         self.p = p
 
     def __call__(self, image, mask):
-        if random.random() > self.p:
+        if random.random() < self.p:
             image = cv2.flip(image, 1)
             mask = cv2.flip(mask, 1)
 
@@ -205,7 +205,7 @@ class VerticalFlip:
         self.p = p
 
     def __call__(self, image, mask):
-        if random.random() > self.p:
+        if random.random() < self.p:
             image = cv2.flip(image, 0)
             mask = cv2.flip(mask, 0)
 
@@ -285,8 +285,131 @@ class ColorJitter(tt.ColorJitter):
 
 @TRANSFORMS.register_module
 class Blend:
-    def __call__(self, image, mask):
-        pass
+    def __init__(self, image_value, mask_value, p=0.5, mixup_alpha=1.5):
+        self.p = p
+        self.image_value = image_value
+        self.mask_value = mask_value
+        self.channel = len(image_value)
+        self.mixup_alpha = mixup_alpha
+
+        # cv.addWeighted(src1, alpha, src2, beta, gamma
+
+    def __call__(self, image1, mask1, image2, mask2):
+        if random.random() < self.p:
+            h1, w1 = image1.shape[:2]
+            h2, w2 = image2.shape[:2]
+
+            target_height = max(h1, h2)
+            target_width = max(w1, w2)
+
+            alpha = random.betavariate(self.mixup_alpha, self.mixup_alpha)
+            if alpha < 0.5:
+                alpha = 1 - alpha
+
+            image_pad_value1 = np.reshape(np.array(self.image_value, dtype=image1.dtype) * alpha, [1, 1, self.channel])
+            image_pad_value2 = np.reshape(np.array(self.image_value, dtype=image1.dtype) * (1 - alpha), [1, 1, self.channel])
+            mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask1.shape[2]), dtype=mask1.dtype), [1, 1, mask1.shape[2]])
+
+            new_image = np.tile(image_pad_value1, (target_height, target_width, 1))
+            new_image_p = np.tile(image_pad_value2, (target_height, target_width, 1))
+            new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
+
+            y1s = int(random.uniform(0, target_height - h1 + 1))
+            y1e = h1 + y1s
+            x1s = int(random.uniform(0, target_width - w1 + 1))
+            x1e = w1 + x1s
+
+            y2s = int(random.uniform(0, target_height - h2 + 1))
+            y2e = h2 + y2s
+            x2s = int(random.uniform(0, target_width - w2 + 1))
+            x2e = w2 + x2s
+
+            if 1 not in mask1:
+                alpha = 1 - alpha
+
+            new_image[y1s:y1e, x1s:x1e, :] = image1 * alpha
+            new_image_p[y2s:y2e, x2s:x2e, :] = image2 * (1 - alpha)
+            new_image += new_image_p
+
+            new_mask[y1s:y1e, x1s:x1e, :] = mask1
+            new_mask[y2s:y2e, x2s:x2e, :] |= mask2
+
+            new_image = new_image[y1s:y1e, x1s:x1e, :]
+            new_mask = new_mask[y1s:y1e, x1s:x1e, :]
+
+        else:
+            new_image, new_mask = image1, mask1
+
+        return new_image, new_mask
+
+
+@TRANSFORMS.register_module
+class Concat:
+    def __init__(self, image_value, mask_value, p=0.5):
+        self.p = p
+        self.image_value = image_value
+        self.mask_value = mask_value
+        self.channel = len(image_value)
+        self.pool = [0, 1, 2, 3]
+
+    def __call__(self, image1, mask1, image2, mask2):
+        if random.random() < self.p:
+            direct = np.random.choice(self.pool)
+
+            h1, w1 = image1.shape[:2]
+            h2, w2 = image2.shape[:2]
+
+            if direct % 2:
+                target_height = max(h1, h2)
+                target_width = w1 + w2
+            else:
+                target_height = h1 + h2
+                target_width = max(w1, w2)
+
+            image_pad_value = np.reshape(np.array(self.image_value, dtype=image1.dtype), [1, 1, self.channel])
+            mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask1.shape[2]), dtype=mask1.dtype), [1, 1, mask1.shape[2]])
+
+            new_image = np.tile(image_pad_value, (target_height, target_width, 1))
+            new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
+
+            y1 = int(random.uniform(0, target_height - h2 + 1))
+            y2 = y1 + h2
+            x1 = int(random.uniform(0, target_width - w2 + 1))
+            x2 = x1 + w2
+
+            if direct == 0:
+                new_image[-h1:, :w1, :] = image1
+                new_mask[-h1:, :w1, :] = mask1
+                new_image[:h2, x1:x2, :] = image2
+                new_mask[:h2, x1:x2, :] = mask2
+            elif direct == 1:
+                new_image[:h1, :w1, :] = image1
+                new_mask[:h1, :w1, :] = mask1
+                new_image[y1:y2, w1:, :] = image2
+                new_mask[y1:y2, w1:, :] = mask2
+            elif direct == 2:
+                new_image[:h1, :w1, :] = image1
+                new_mask[:h1, :w1, :] = mask1
+                new_image[h1:, x1:x2, :] = image2
+                new_mask[h1:, x1:x2, :] = mask2
+            else:
+                new_image[:h1, -w1:, :] = image1
+                new_mask[:h1, -w1:, :] = mask1
+                new_image[y1:y2, :w2, :] = image2
+                new_mask[y1:y2, :w2, :] = mask2
+            # assert np.count_nonzero(mask != self.mask_value) == np.count_nonzero(new_mask != self.mask_value)
+
+            if direct % 2:
+                new_image = new_image[:h1, :, :]
+                new_mask = new_mask[:h1, :, :]
+            else:
+                new_image = new_image[:, :w1, :]
+                new_mask = new_mask[:, :w1, :]
+        else:
+            new_image = image1
+            new_mask = mask1
+
+        return new_image, new_mask
 
 
 @TRANSFORMS.register_module
