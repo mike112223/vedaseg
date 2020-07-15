@@ -25,13 +25,18 @@ CV2_BORDER_MODE = {
 
 
 class Compose:
-    def __init__(self, transforms):
+    def __init__(self, transforms, bitransforms=None):
         self.transforms = transforms
+        self.bitransforms = bitransforms
 
-    def __call__(self, image, mask):
+    def __call__(self, img1, mask1, img2=None, mask2=None):
+        if self.bitransforms is not None:
+            for t in self.bitransforms:
+                img1, mask1 = t(img1, mask1, img2, mask2)
+
         for t in self.transforms:
-            image, mask = t(image, mask)
-        return image, mask
+            img1, mask1 = t(img1, mask1)
+        return img1, mask1
 
 
 @TRANSFORMS.register_module
@@ -50,14 +55,14 @@ class FactorScale:
         new_w = int(w * self.scale_factor)
 
         torch_image = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0)
-        torch_mask = torch.from_numpy(mask).unsqueeze(0).unsqueeze(0)
+        torch_mask = torch.from_numpy(mask.astype(np.float32)).permute(2, 0, 1).unsqueeze(0)
         torch_image = F.interpolate(torch_image, size=(new_h, new_w),
                                     mode=self.mode, align_corners=True)
         torch_mask = F.interpolate(torch_mask, size=(new_h, new_w),
                                    mode='nearest')
 
         new_image = torch_image.squeeze().permute(1, 2, 0).numpy()
-        new_mask = torch_mask.squeeze().numpy()
+        new_mask = torch_mask.squeeze().permute(1, 2, 0).numpy()
 
         return new_image, new_mask
 
@@ -276,6 +281,12 @@ class ColorJitter(tt.ColorJitter):
         new_image = super().__call__(new_image)
         new_image = np.array(new_image).astype(np.float32)
         return new_image, mask
+
+
+@TRANSFORMS.register_module
+class Blend:
+    def __call__(self, image, mask):
+        pass
 
 
 @TRANSFORMS.register_module

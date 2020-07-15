@@ -44,6 +44,22 @@ class CocoDataset(BaseDataset):
         # load annotations (and proposals)
         self.data_infos = self.load_annotations(self.ann_file)
 
+        self._set_group_flag()
+
+    def _set_group_flag(self):
+        """Set flag according to image aspect ratio.
+
+        Images with aspect ratio greater than 1 will be set as group 1,
+        otherwise group 0.
+        """
+        self.norm_flag = np.zeros(len(self), dtype=np.uint8)
+        for i in range(len(self)):
+            data_info = self.data_infos[i]
+            if 'normal' in data_info['filename'].split('/'):
+                self.norm_flag[i] = 1
+            else:
+                self.norm_flag[i] = 0
+
     def __len__(self):
         return len(self.data_infos)
 
@@ -161,6 +177,10 @@ class CocoDataset(BaseDataset):
                 dmasks = np.concatenate([fmask, dmasks], axis=2)
 
         return dmasks
+
+    def _rand_another(self, idx):
+        pool = np.where(self.flag != self.flag[idx])[0]
+        return np.random.choice(pool)
 
     def __getitem__(self, idx):
         img_info = self.data_infos[idx]
