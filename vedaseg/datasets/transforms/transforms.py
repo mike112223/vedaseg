@@ -296,6 +296,11 @@ class Blend:
 
     def __call__(self, image1, mask1, image2, mask2):
         if random.random() < self.p:
+
+            if 1 not in mask1:
+                image1, image2 = image2, image1
+                mask1, mask2 = mask2, mask1
+
             h1, w1 = image1.shape[:2]
             h2, w2 = image2.shape[:2]
 
@@ -323,9 +328,6 @@ class Blend:
             y2e = h2 + y2s
             x2s = int(random.uniform(0, target_width - w2 + 1))
             x2e = w2 + x2s
-
-            if 1 not in mask1:
-                alpha = 1 - alpha
 
             new_image[y1s:y1e, x1s:x1e, :] = image1 * alpha
             new_image_p[y2s:y2e, x2s:x2e, :] = image2 * (1 - alpha)
