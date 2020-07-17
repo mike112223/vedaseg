@@ -17,6 +17,7 @@ CV2_MODE = {
 }
 
 CV2_BORDER_MODE = {
+    'default': cv2.BORDER_DEFAULT,
     'constant': cv2.BORDER_CONSTANT,
     'reflect': cv2.BORDER_REFLECT,
     'reflect101': cv2.BORDER_REFLECT101,
@@ -235,6 +236,83 @@ class RandomRotate:
                                   borderValue=self.mask_value)
 
         return image, mask
+
+
+@TRANSFORMS.register_module
+class RandomErase:
+    def __init__(self, max_size, min_size, image_value, mask_value, ignore=255, p=0.5):
+        self.p = p
+        self.min_h, self.min_w = min_size
+        self.max_h, self.max_w = max_size
+        self.image_value = image_value
+        self.mask_value = mask_value
+        self.ignore = ignore
+
+    def __call__(self, image, mask):
+        if random.random() < self.p:
+
+            hs, ws, _ = np.where(mask != self.ignore)
+
+            h, w = max(hs), max(ws)
+
+            eh = int(random.uniform(self.min_h, self.max_h + 1))
+            ew = int(random.uniform(self.min_w, self.max_w + 1))
+
+            y1 = int(random.uniform(0, h - eh + 1))
+            y2 = eh + y1
+            x1 = int(random.uniform(0, w - ew + 1))
+            x2 = ew + x1
+
+            image[y1:y2, x1:x2, :] = self.image_value
+            mask[y1:y2, x1:x2, :] = self.mask_value
+
+        return image, mask
+
+
+@TRANSFORMS.register_module
+class RandomAffine(object):
+    def __init__(self, crange, image_value, mask_value,
+                 p=0.5, mode='bilinear', border_mode='reflect101'):
+        self.crange = (-crange, crange) \
+            if isinstance(crange, (int, float)) else crange
+
+        self.p = p
+        self.mode = CV2_MODE[mode]
+        self.border_mode = CV2_BORDER_MODE[border_mode]
+        self.image_value = image_value
+        self.mask_value = mask_value
+
+    def _get_transform_matrix(self, img):
+        jitters = np.random.uniform(*self.crange, 4).reshape(2, 2)
+        transform_matrix = np.array([[1., 0., 0.],
+                                    [0., 1., 0.]])
+        transform_matrix[:2, :2] += jitters
+
+        return transform_matrix
+
+    def __call__(self, img, mask):
+        if random.random() < self.p:
+            matrix = self._get_transform_matrix(img)
+
+            h, w, _ = img.shape
+            img = cv2.warpAffine(
+                img,
+                M=matrix.astype(np.float64),
+                dsize=(w, h),
+                flags=self.mode,
+                borderMode=self.border_mode,
+                borderValue=self.image_value
+            )
+            mask = cv2.warpAffine(
+                mask,
+                M=matrix.astype(np.float64),
+                dsize=(w, h),
+                flags=self.mode,
+                borderMode=self.border_mode,
+                borderValue=self.mask_value
+            )
+
+        return img, mask
 
 
 @TRANSFORMS.register_module
