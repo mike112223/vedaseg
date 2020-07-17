@@ -36,9 +36,14 @@ data = dict(
             img_prefix='jinnan2_round2_train_20190401',
             extra_super=True,
         ),
+        bitransforms=[
+            dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+        ],
         transforms=[
+            dict(type='RandomRotate', degrees=180, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
-            dict(type='RandomErase', min_size=(20, 20), max_size=(30, 30), image_value=(255, 255, 255), mask_value=0),
+            dict(type='HorizontalFlip'),
+            dict(type='VerticalFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
@@ -268,4 +273,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '1,2'
+gpu_id = '4,5'

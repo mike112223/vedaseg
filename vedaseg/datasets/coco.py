@@ -181,11 +181,11 @@ class CocoDataset(BaseDataset):
         return dmasks
 
     def _rand_another(self, idx):
-        if self.rand_same:
-            pool = np.where(self.norm_flag == self.norm_flag[idx])[0]
-        else:
-            pool = np.where(self.norm_flag != self.norm_flag[idx])[0]
-        return np.random.choice(pool)
+        # if self.rand_same:
+        #     pool = np.where(self.norm_flag == self.norm_flag[idx])[0]
+        # else:
+        #     pool = np.where(self.norm_flag != self.norm_flag[idx])[0]
+        return np.random.choice(range(len(self)))
 
     def _get_img_info(self, idx):
         img_info = self.data_infos[idx]

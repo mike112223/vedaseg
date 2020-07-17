@@ -258,10 +258,20 @@ class RandomErase:
             eh = int(random.uniform(self.min_h, self.max_h + 1))
             ew = int(random.uniform(self.min_w, self.max_w + 1))
 
-            y1 = int(random.uniform(0, h - eh + 1))
-            y2 = eh + y1
-            x1 = int(random.uniform(0, w - ew + 1))
-            x2 = ew + x1
+            if 1 in mask:
+                ihs, iws, _ = np.where(mask == 1)
+                idx = np.random.choice(len(ihs))
+                ih, iw = ihs[idx], iws[idx]
+                y1 = int(random.uniform(max(0, ih - eh), min(h - eh + 1, ih)))
+                y2 = eh + y1
+                x1 = int(random.uniform(max(0, iw - ew), min(w - ew + 1, iw)))
+                x2 = ew + x1
+
+            else:
+                y1 = int(random.uniform(0, h - eh + 1))
+                y2 = eh + y1
+                x1 = int(random.uniform(0, w - ew + 1))
+                x2 = ew + x1
 
             image[y1:y2, x1:x2, :] = self.image_value
             mask[y1:y2, x1:x2, :] = self.mask_value
