@@ -89,6 +89,7 @@ model = dict(
         backbone=dict(
             type='ResNet',
             arch='se_resnet50',
+            pretrain=False,
         ),
     ),
     # model/decoder
