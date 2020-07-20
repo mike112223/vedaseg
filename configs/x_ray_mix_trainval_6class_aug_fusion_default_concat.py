@@ -37,7 +37,7 @@ data = dict(
             extra_super=True,
         ),
         bitransforms=[
-            dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='Concat', image_value=img_norm_cfg['mean'], mask_value=ignore_label),
         ],
         transforms=[
             dict(type='RandomRotate', degrees=180, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -273,4 +273,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '7,8'
+gpu_id = '0'

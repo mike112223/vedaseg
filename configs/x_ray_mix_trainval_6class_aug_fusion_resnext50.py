@@ -88,7 +88,7 @@ model = dict(
     encoder=dict(
         backbone=dict(
             type='ResNet',
-            arch='resnet50',
+            arch='resnext50_32x4d',
         ),
     ),
     # model/decoder
@@ -273,4 +273,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '7,8'
+gpu_id = '6,7'

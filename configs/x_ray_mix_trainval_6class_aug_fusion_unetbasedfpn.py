@@ -72,7 +72,7 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=16,
+            batch_size=12,
             num_workers=4,
             shuffle=False,
             drop_last=False,
@@ -230,11 +230,28 @@ model = dict(
                 ),
                 to_layer='p0',
             ),  # 1
-        ]),
+        ],
+        fusion=dict(
+            type='FusionBlock',
+            method='concat',
+            from_layers=['p0', 'p1', 'p2', 'p3', 'p4'],
+            feat_strides=[1, 2, 4, 8, 16],
+            in_channels_list=[16, 32, 64, 128, 256],
+            out_channels_list=[16, 16, 16, 16, 16],
+            common_stride=1,
+            upsample=dict(
+                type='Upsample',
+                scale_factor=2,
+                scale_bias=-1,
+                mode='bilinear',
+                align_corners=True,
+            ),
+        ),
+    ),
     # model/decoer/head
     head=dict(
         type='Head',
-        in_channels=16,
+        in_channels=80,
         out_channels=nclasses,
         num_convs=0,
         upsample=dict(
@@ -273,4 +290,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '7,8'
+gpu_id = '8,9'
