@@ -183,7 +183,8 @@ MODEL_CFGS = {
     'se_resnet50': {
         'block': SEBottleneck,
         'layer': [3, 4, 6, 3],
-        'weights_url': "https://github.com/moskomule/senet.pytorch/releases/download/archive/seresnet50-60a8950a85b2b.pkl",
+        # 'weights_url': "https://github.com/moskomule/senet.pytorch/releases/download/archive/seresnet50-60a8950a85b2b.pkl",
+        'weights_url': model_urls['resnet50']
     },
 }
 
