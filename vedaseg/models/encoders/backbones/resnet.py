@@ -116,7 +116,7 @@ class SEBottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, norm_layer, act_layer, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, reduction=16,):
-        super(Bottleneck, self).__init__()
+        super(SEBottleneck, self).__init__()
         width = int(planes * (base_width / 64.)) * groups
 
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
