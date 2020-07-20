@@ -110,7 +110,7 @@ class MultiLabelMetricMeter(object):
                 sub_pred *= fg_pred
 
             sub_pred = sub_pred > 0.5
-            sub_gt = sub_gt == 1
+            sub_gt = (sub_gt > 0.5) & (sub_gt <= 1)
 
             interactions = np.sum(sub_pred & sub_gt)
             unions = np.sum(sub_pred | sub_gt)

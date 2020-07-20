@@ -22,7 +22,8 @@ class CocoDataset(BaseDataset):
                  transform=None,
                  infer=False,
                  extra_super=False,
-                 rand_same=False):
+                 rand_same=False,
+                 label_epsilon=-1):
         self.ann_file = ann_file
         self.data_root = data_root
         self.img_prefix = img_prefix
@@ -32,6 +33,7 @@ class CocoDataset(BaseDataset):
         self.infer = infer
         self.extra_super = extra_super
         self.rand_same = rand_same
+        self.label_epsilon = label_epsilon
 
         if isinstance(self.spec_class, int):
             self.spec_class = [self.spec_class]
@@ -212,7 +214,10 @@ class CocoDataset(BaseDataset):
         img, mask = self.process(img, dmasks, img2, dmasks2)
 
         if self.spec_class is not None:
-            mask = mask.long()[0]
+            mask = mask[0]
+
+        if self.label_epsilon > 0:
+            mask = self.label_smoothing(mask)
         else:
             mask = mask.long()
 
