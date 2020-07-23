@@ -9,7 +9,7 @@ from .sampler import build_sampler
 
 
 @CRITERIA.register_module
-class RectBCELoss(nn.Module):
+class MultiRectBCELoss(nn.Module):
 
     def __init__(self,
                  sampler=None,
@@ -19,7 +19,7 @@ class RectBCELoss(nn.Module):
                  ignore_index=255,
                  loss_weight=1.0,
                  label_epsilon=-1):
-        super(RectBCELoss, self).__init__()
+        super(MultiRectBCELoss, self).__init__()
         self.balanced = balanced
         self.weight = weight
         self.reduction = reduction
@@ -33,7 +33,7 @@ class RectBCELoss(nn.Module):
             self.sampler = None
 
     def forward(self,
-                cls_score,
+                pred,
                 label,
                 avg_factor=None,
                 reduction_override=None,
@@ -42,27 +42,23 @@ class RectBCELoss(nn.Module):
         reduction = (
             reduction_override if reduction_override else self.reduction)
 
-        if self.weight:
-            weight = cls_score.new_tensor(self.weight)
-        elif self.balanced:
-            weight = cls_score.new_tensor([0, 0])
-            weight[0] = (label == 1).sum()
-            weight[1] = (label == 0).sum()
-            weight /= weight.sum()
-            if 1 in (weight == 0).tolist():
-                weight = None
-        else:
-            weight = None
+        mask_score, cls_score = pred
+        mask_label, cls_label = label
 
-        mask = (label != self.ignore_index)
+        mask = (mask_label != self.ignore_index)
 
         if self.label_epsilon < 0:
-            mask[:, 1:, :, :] &= label[:, 0:1, :, :] == 1
+            mask[:, 1:, :, :] &= mask_label[:, 0:1, :, :] == 1
         else:
-            mask[:, 1:, :, :] &= label[:, 0:1, :, :] == 1 - self.label_epsilon
+            mask[:, 1:, :, :] &= mask_label[:, 0:1, :, :] == 1 - self.label_epsilon
+
+        # import pdb
+        # pdb.set_trace()
+
+        loss_mask = self.loss_weight * F.binary_cross_entropy_with_logits(
+            mask_score[mask], mask_label.float()[mask], reduction=reduction)
 
         loss_cls = self.loss_weight * F.binary_cross_entropy_with_logits(
-            cls_score[mask], label.float()[mask], weight=weight,
-            reduction=reduction)
+            cls_score, cls_label.float(), reduction=reduction)
 
-        return loss_cls
+        return loss_cls + loss_mask

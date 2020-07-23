@@ -102,11 +102,8 @@ class MultiLabelMetricMeter(object):
             sub_pred = sub_pred[mask]
             sub_gt = sub_gt[mask]
 
-            sub_pred = 1 / (1 + np.exp(-sub_pred))
-
             if self.extra_super and i != 0:
                 fg_pred = pred[0][mask]
-                fg_pred = 1 / (1 + np.exp(-fg_pred))
                 sub_pred *= fg_pred
 
             sub_pred = sub_pred > 0.5

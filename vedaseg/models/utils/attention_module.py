@@ -19,9 +19,9 @@ class SEModule(nn.Module):
         return x * y.expand_as(x)
 
 
-class cSE_Module(nn.Module):
+class cSEModule(nn.Module):
     def __init__(self, channel, ratio=16):
-        super(cSE_Module, self).__init__()
+        super(cSEModule, self).__init__()
         self.squeeze = nn.AdaptiveAvgPool2d(1)
         self.excitation = nn.Sequential(
             nn.Linear(in_features=channel, out_features=channel // ratio),
@@ -37,11 +37,11 @@ class cSE_Module(nn.Module):
         return x * z.expand_as(x)
 
 
-class sSE_Module(nn.Module):
+class sSEModule(nn.Module):
     def __init__(self, channel):
-        super(sSE_Module, self).__init__()
+        super(sSEModule, self).__init__()
         self.spatial_excitation = nn.Sequential(
-            nn.Conv2d(in_channels=channel, out_channels=1, kernel_size=1,stride=1,padding=0),
+            nn.Conv2d(in_channels=channel, out_channels=1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid()
         )
 
@@ -50,11 +50,11 @@ class sSE_Module(nn.Module):
         return x * z.expand_as(x)
 
 
-class scSE_Module(nn.Module):
+class scSEModule(nn.Module):
     def __init__(self, channel, ratio=16):
-        super(scSE_Module, self).__init__()
-        self.cSE = cSE_Module(channel, ratio)
-        self.sSE = sSE_Module(channel)
+        super(scSEModule, self).__init__()
+        self.cSE = cSEModule(channel, ratio)
+        self.sSE = sSEModule(channel)
 
     def forward(self, x):
         return self.cSE(x) + self.sSE(x)

@@ -26,21 +26,21 @@ img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.37
 ignore_label = 255
 label_epsilon = 0.1
 
-dataset_type = 'CocoDataset'
-dataset_root = 'data/tianchi/'
+dataset_type = 'MultiCocoDataset'
+dataset_root = ''
 data = dict(
     train=dict(
         dataset=dict(
             type=dataset_type,
-            ann_file='round2_mix_train.json',
+            ann_file='data/mix_tianchi_sixray_train.json',
             data_root=dataset_root,
-            img_prefix='jinnan2_round2_train_20190401',
+            img_prefix='',
             extra_super=True,
             label_epsilon=label_epsilon,
         ),
-        bitransforms=[
-            dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
-        ],
+        # bitransforms=[
+        #     dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+        # ],
         transforms=[
             dict(type='RandomRotate', degrees=180, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -51,8 +51,8 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
-            num_workers=4,
+            batch_size=4,
+            num_workers=2,
             shuffle=True,
             drop_last=False,
             pin_memory=True,
@@ -61,9 +61,9 @@ data = dict(
     val=dict(
         dataset=dict(
             type=dataset_type,
-            ann_file='round2_mix_val.json',
+            ann_file='data/mix_tianchi_sixray_val.json',
             data_root=dataset_root,
-            img_prefix='jinnan2_round2_train_20190401',
+            img_prefix='',
             extra_super=True,
         ),
         transforms=[
@@ -74,8 +74,8 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=16,
-            num_workers=4,
+            batch_size=8,
+            num_workers=2,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
@@ -235,9 +235,10 @@ model = dict(
         ]),
     # model/decoer/head
     head=dict(
-        type='Head',
+        type='MultiHead',
         in_channels=16,
-        out_channels=nclasses,
+        out_mask_channels=nclasses,
+        out_cls_channels=2,
         num_convs=0,
         upsample=dict(
             type='Upsample',
@@ -255,7 +256,7 @@ resume = None
 
 # 4. criterion
 criterion = dict(
-    type='RectBCELoss',
+    type='MultiRectBCELoss',
     label_epsilon=label_epsilon,
     ignore_index=ignore_label
 )
@@ -279,4 +280,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '2,3'
+gpu_id = '8'

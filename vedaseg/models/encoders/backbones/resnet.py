@@ -13,7 +13,7 @@ from .registry import BACKBONES
 from ...weight_init import init_weights
 from ...utils.norm import build_norm_layer
 from ...utils.act import build_act_layer
-from ...utils import SEModule
+from ...utils import SEModule, scSEModule
 
 logger = logging.getLogger()
 
@@ -157,6 +157,52 @@ class SEBottleneck(nn.Module):
         return out
 
 
+class scSEBottleneck(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, norm_layer, act_layer, stride=1, downsample=None, groups=1,
+                 base_width=64, dilation=1, reduction=16,):
+        super(scSEBottleneck, self).__init__()
+        width = int(planes * (base_width / 64.)) * groups
+
+        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+        self.conv1 = conv1x1(inplanes, width)
+        self.bn1 = norm_layer(width)
+        self.relu1 = act_layer(width)
+        self.conv2 = conv3x3(width, width, stride, groups, dilation)
+        self.bn2 = norm_layer(width)
+        self.relu2 = act_layer(width)
+        self.conv3 = conv1x1(width, planes * self.expansion)
+        self.bn3 = norm_layer(planes * self.expansion)
+        self.relu3 = act_layer(planes * self.expansion)
+        self.se = scSEModule(planes * self.expansion, reduction)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu1(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu2(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+        out = self.se(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        out = self.relu3(out)
+
+        return out
+
+
 MODEL_CFGS = {
     'resnet101': {
         'block': Bottleneck,
@@ -183,7 +229,12 @@ MODEL_CFGS = {
     'se_resnet50': {
         'block': SEBottleneck,
         'layer': [3, 4, 6, 3],
-        # 'weights_url': "https://github.com/moskomule/senet.pytorch/releases/download/archive/seresnet50-60a8950a85b2b.pkl",
+        'weights_url': "https://github.com/moskomule/senet.pytorch/releases/download/archive/seresnet50-60a8950a85b2b.pkl",
+        # 'weights_url': model_urls['resnet50']
+    },
+    'scse_resnet50': {
+        'block': scSEBottleneck,
+        'layer': [3, 4, 6, 3],
         'weights_url': model_urls['resnet50']
     },
 }
@@ -232,7 +283,7 @@ class ResNetCls(nn.Module):
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)

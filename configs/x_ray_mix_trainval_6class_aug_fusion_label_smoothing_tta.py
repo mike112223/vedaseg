@@ -13,13 +13,12 @@ logger = dict(
 )
 
 # 2. data
-# test_cfg = dict(
-#     scales=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
-#     bias=[0.5, 0.25, 0.0, -0.25, -0.5, -0.75],
-#     flip=True,
-# )
+test_cfg = dict(
+    scales=[0.75, 1.0],
+    bias=[0.25, 0.0],
+    flips=[2, 3],
+)
 
-test_cfg = dict()
 multilabel = True
 
 img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.375))
@@ -67,15 +66,15 @@ data = dict(
             extra_super=True,
         ),
         transforms=[
-            dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            # dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             # dict(type='PadIfNeeded', size_divisor=32, scale_bias=1, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=16,
-            num_workers=4,
+            batch_size=1,
+            num_workers=1,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
@@ -279,4 +278,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '2,3'
+gpu_id = '0'

@@ -21,7 +21,7 @@ logger = logging.getLogger()
 
 
 @RUNNERS.register_module
-class Runner(object):
+class SIXRunner(object):
     """ Runner
 
     """
@@ -135,23 +135,15 @@ class Runner(object):
 
         if self.gpu:
             img = img.cuda()
-
-            if isinstance(label, (tuple, list)):
-                mask_label, cls_label = label
-                mask_label = mask_label.cuda()
-                cls_label = cls_label.cuda()
-                label = (mask_label, cls_label)
-            else:
-                label = label.cuda()
-
+            label = label.cuda()
         pred = self.model(img)
         loss = self.criterion(pred, label)
 
         loss.backward()
         self.optim.step()
 
-        if isinstance(pred, tuple):
-            pred = pred[0]
+        import pdb
+        pdb.set_trace()
 
         with torch.no_grad():
 
@@ -180,9 +172,6 @@ class Runner(object):
             #         cv2.imwrite(
             #             osp.join(self.workdir, 'pred%d_%d.png' % (i, self.iter)),
             #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
-
-            if isinstance(label, (tuple, list)):
-                label = label[0]
 
             self.metric.add(pred.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()

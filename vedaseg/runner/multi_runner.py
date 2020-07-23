@@ -21,7 +21,7 @@ logger = logging.getLogger()
 
 
 @RUNNERS.register_module
-class Runner(object):
+class MultiRunner(object):
     """ Runner
 
     """
@@ -135,35 +135,28 @@ class Runner(object):
 
         if self.gpu:
             img = img.cuda()
-
-            if isinstance(label, (tuple, list)):
-                mask_label, cls_label = label
-                mask_label = mask_label.cuda()
-                cls_label = cls_label.cuda()
-                label = (mask_label, cls_label)
-            else:
-                label = label.cuda()
-
+            label = label.cuda()
         pred = self.model(img)
         loss = self.criterion(pred, label)
+        mask_pred, cls_pred = pred
 
         loss.backward()
         self.optim.step()
 
-        if isinstance(pred, tuple):
-            pred = pred[0]
+        import pdb
+        pdb.set_trace()
 
         with torch.no_grad():
 
             '''
             import matplotlib.pyplot as plt
-            pred = (prob[0]).permute(1, 2, 0).float().cpu().numpy()[:, :, 0]
+            mask_pred = (prob[0]).permute(1, 2, 0).float().cpu().numpy()[:, :, 0]
             im = img[0].permute(1, 2, 0).clamp(min=0, max=1).cpu().numpy()
             label_ = label[0].permute(1, 2, 0).clamp(min=0, max=1).cpu().numpy()[:, :, 0]
             import random
             random_num = random.randint(0, 1000)
-            pred_name = 'output/%d_pred.jpg' % random_num
-            plt.imsave(pred_name, pred, cmap='Greys')
+            mask_pred_name = 'output/%d_mask_pred.jpg' % random_num
+            plt.imsave(mask_pred_name, mask_pred, cmap='Greys')
             im_name = 'output/%d.jpg' % random_num
             plt.imsave(im_name, im, cmap='Greys')
             label_name = 'output/%d_gt.jpg' % random_num
@@ -171,20 +164,17 @@ class Runner(object):
             '''
             if not self.multilabel:
                 print('!!!!!!!!!!!')
-                _, pred = torch.max(pred, dim=1)
+                _, mask_pred = torch.max(mask_pred, dim=1)
             else:
-                pred = pred.sigmoid()
+                mask_pred = mask_pred.sigmoid()
 
             # if self.iter % 20 == 0:
             #     for i in range(4):
             #         cv2.imwrite(
-            #             osp.join(self.workdir, 'pred%d_%d.png' % (i, self.iter)),
-            #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
+            #             osp.join(self.workdir, 'mask_pred%d_%d.png' % (i, self.iter)),
+            #             255 * mask_pred_label.cpu().numpy()[i].astype(np.uint8))
 
-            if isinstance(label, (tuple, list)):
-                label = label[0]
-
-            self.metric.add(pred.cpu().numpy(), label.cpu().numpy())
+            self.metric.add(mask_pred.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
         if self.iter != 0 and self.iter % 10 == 0:
             logger.info(

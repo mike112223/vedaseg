@@ -24,7 +24,7 @@ multilabel = True
 
 img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.375))
 ignore_label = 255
-label_epsilon = 0.1
+label_epsilon = 0.01
 
 dataset_type = 'CocoDataset'
 dataset_root = 'data/tianchi/'
@@ -270,7 +270,7 @@ lr_scheduler = dict(
     warm_up=50,
     max_epochs=max_epochs)
 
-# 7. runnerlabel_epsilon
+# 7. runner
 runner = dict(
     type='Runner',
     max_epochs=max_epochs,
@@ -279,4 +279,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '2,3'
+gpu_id = '0,1'

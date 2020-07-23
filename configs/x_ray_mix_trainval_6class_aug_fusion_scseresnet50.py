@@ -24,7 +24,6 @@ multilabel = True
 
 img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.375))
 ignore_label = 255
-label_epsilon = 0.1
 
 dataset_type = 'CocoDataset'
 dataset_root = 'data/tianchi/'
@@ -36,7 +35,6 @@ data = dict(
             data_root=dataset_root,
             img_prefix='jinnan2_round2_train_20190401',
             extra_super=True,
-            label_epsilon=label_epsilon,
         ),
         bitransforms=[
             dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -51,7 +49,7 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
+            batch_size=16,
             num_workers=4,
             shuffle=True,
             drop_last=False,
@@ -90,7 +88,8 @@ model = dict(
     encoder=dict(
         backbone=dict(
             type='ResNet',
-            arch='resnet50',
+            arch='scse_resnet50',
+            pretrain=True,
         ),
     ),
     # model/decoder
@@ -254,11 +253,7 @@ model = dict(
 resume = None
 
 # 4. criterion
-criterion = dict(
-    type='RectBCELoss',
-    label_epsilon=label_epsilon,
-    ignore_index=ignore_label
-)
+criterion = dict(type='RectBCELoss', ignore_index=ignore_label)
 
 # 5. optim
 optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=0.0001)
@@ -270,7 +265,7 @@ lr_scheduler = dict(
     warm_up=50,
     max_epochs=max_epochs)
 
-# 7. runnerlabel_epsilon
+# 7. runner
 runner = dict(
     type='Runner',
     max_epochs=max_epochs,
@@ -279,4 +274,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '2,3'
+gpu_id = '2,8'

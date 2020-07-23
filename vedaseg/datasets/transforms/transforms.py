@@ -126,24 +126,23 @@ class RandomCrop:
         target_height = h + max(self.height - h, 0)
         target_width = w + max(self.width - w, 0)
 
-        image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
-        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
-
-        new_image = np.tile(image_pad_value, (target_height, target_width, 1))
-        new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
-
-        new_image[:h, :w, :] = image
-        new_mask[:h, :w, :] = mask
-
-        # assert np.count_nonzero(mask != self.mask_value) == np.count_nonzero(new_mask != self.mask_value)
-
         y1 = int(random.uniform(0, target_height - self.height + 1))
         y2 = y1 + self.height
         x1 = int(random.uniform(0, target_width - self.width + 1))
         x2 = x1 + self.width
 
+        image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
+        new_image = np.tile(image_pad_value, (target_height, target_width, 1))
+        new_image[:h, :w, :] = image
         new_image = new_image[y1:y2, x1:x2, :]
-        new_mask = new_mask[y1:y2, x1:x2, :]
+
+        if mask is not None:
+            mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
+            new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
+            new_mask[:h, :w, :] = mask
+            new_mask = new_mask[y1:y2, x1:x2, :]
+        else:
+            new_mask = None
 
         return new_image, new_mask
 
@@ -174,13 +173,15 @@ class PadIfNeeded:
             target_width = int(np.ceil(w / self.size_divisor) * self.size_divisor) + self.scale_bias
 
         image_pad_value = np.reshape(np.array(self.image_value, dtype=image.dtype), [1, 1, self.channel])
-        mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
-
         new_image = np.tile(image_pad_value, (target_height, target_width, 1))
-        new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
-
         new_image[:h, :w, :] = image
-        new_mask[:h, :w, :] = mask
+
+        if mask is not None:
+            mask_pad_value = np.reshape(np.array(np.tile(self.mask_value, mask.shape[2]), dtype=mask.dtype), [1, 1, mask.shape[2]])
+            new_mask = np.tile(mask_pad_value, (target_height, target_width, 1))
+            new_mask[:h, :w, :] = mask
+        else:
+            new_mask = None
 
         # assert np.count_nonzero(mask != self.mask_value) == np.count_nonzero(new_mask != self.mask_value)
 
@@ -232,8 +233,10 @@ class RandomRotate:
 
             image = cv2.warpAffine(image, M=matrix, dsize=(w, h), flags=self.mode, borderMode=self.border_mode,
                                    borderValue=self.image_value)
-            mask = cv2.warpAffine(mask, M=matrix, dsize=(w, h), flags=cv2.INTER_NEAREST, borderMode=self.border_mode,
-                                  borderValue=self.mask_value)
+
+            if mask is not None:
+                mask = cv2.warpAffine(mask, M=matrix, dsize=(w, h), flags=cv2.INTER_NEAREST, borderMode=self.border_mode,
+                                      borderValue=self.mask_value)
 
         return image, mask
 
@@ -506,6 +509,7 @@ class Concat:
 class ToTensor:
     def __call__(self, image, mask):
         image = torch.from_numpy(image).permute(2, 0, 1)
-        mask = torch.from_numpy(mask).permute(2, 0, 1)
+        if mask is not None:
+            mask = torch.from_numpy(mask).permute(2, 0, 1)
 
         return image, mask

@@ -64,15 +64,102 @@ def gen_json(args):
         val_simg_id, val_sann_id = process_restricted(
             val_data, ori_coco, re_val_idxs,
             val_simg_id, val_sann_id)
-        train_simg_id = process_normal(
+        val_simg_id = process_normal(
             val_data, folder, norm_files,
             norm_val_idxs, val_simg_id)
+
+        process_csv(train_data, train_simg_id, train_sann_id)
 
     with open(args.output + '_train.json', 'w') as f:
         json.dump(train_data, f)
 
     with open(args.output + '_val.json', 'w') as f:
         json.dump(val_data, f)
+
+
+def process_csv(data, simg_id, sann_id):
+    data_root = 'data/SIXray'
+    csv_file = 'data/SIXray/ImageSet/10/train.csv'
+    img_prefix = 'data/SIXray/Image'
+    divisor = 52515
+    spec_class = [2, 5]
+
+    lines = open(csv_file).readlines()
+    ridxs = np.random.permutation(range(len(lines)))
+
+    print(simg_id, sann_id)
+
+    P_num = 0
+    N_num = 0
+    for i in tqdm(ridxs):
+        if i == 0:
+            continue
+
+        line = lines[i]
+        _data = line.split(',')
+        name = _data[0]
+        cls_data = [int(_) for _ in _data[1:]]
+        num = int(name[1:])
+
+        if name[0] == 'P':
+            path = os.path.join(img_prefix, name + '.jpg')
+        else:
+            path = os.path.join(
+                data_root,
+                '%d' % ((num - 1) // divisor),
+                name + '.jpg')
+
+        img = cv2.imread(path)
+        if img is None:
+            continue
+
+        h, w = img.shape[:2]
+        if h > 513 or w > 513:
+            continue
+
+        if P_num == 200 and N_num == 800:
+            break
+
+        ann_incre = 0
+        for j, l in enumerate(cls_data):
+            if j + 1 in spec_class and l == 1:
+                data['annotations'].append({
+                    'id': sann_id,
+                    'image_id': simg_id,
+                    'category_id': 3 if j + 1 == 2 else j + 1,
+                    'iscrowd': 0,
+                    'segmentation': [],
+                    'area': 100.0,
+                    'bbox': [0, 0, 2, 2],
+                    'minAreaRect': []
+                })
+
+                sann_id += 1
+                ann_incre += 1
+
+        if ann_incre > 0:
+            P_num += 1
+        elif N_num == 800:
+            continue
+        else:
+            N_num += 1
+
+        data['images'].append({
+            'coco_url': '',
+            'data_captured': '',
+            'file_name': path,
+            'flickr_url': '',
+            'id': simg_id,
+            'height': h,
+            'width': w,
+            'license': 1
+        })
+
+        simg_id += 1
+
+        print(N_num, P_num)
+
+    print(simg_id, sann_id)
 
 
 def process_restricted(data, coco, idxs, simg_id, sann_id):
@@ -85,7 +172,7 @@ def process_restricted(data, coco, idxs, simg_id, sann_id):
 
         img_info[0]['id'] = simg_id
 
-        img_info[0]['file_name'] = osp.join('restricted', img_info[0]['file_name'])
+        img_info[0]['file_name'] = osp.join('data/tianchi/jinnan2_round2_train_20190401/restricted', img_info[0]['file_name'])
         data['images'].extend(img_info)
 
         for ann in ann_infos:
@@ -110,7 +197,7 @@ def process_normal(data, folder, files, idxs, simg_id):
         data['images'].append({
             'coco_url': '',
             'data_captured': '',
-            'file_name': osp.join('normal', path),
+            'file_name': osp.join('data/tianchi/jinnan2_round2_train_20190401/normal', path),
             'flickr_url': '',
             'id': simg_id,
             'height': h,
