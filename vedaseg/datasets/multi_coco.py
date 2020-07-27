@@ -165,10 +165,10 @@ class MultiCocoDataset(BaseDataset):
 
     def draw_mask(self, img, ann_info):
         if self.spec_class is not None:
-            dmasks = np.zeros((img.shape[0], img.shape[1], 1), np.uint8)
-            for mask in ann_info['masks']:
+            dmasks = np.zeros((len(self.spec_class), img.shape[0], img.shape[1]), np.uint8)
+            for mask, label in zip(ann_info['masks'], ann_info['labels']):
                 mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
-                cv2.drawContours(dmasks[:, :, 0], [mask], -1, 1, cv2.FILLED)
+                cv2.drawContours(dmasks[self.spec_class.index(label + 1)], [mask], -1, 1, cv2.FILLED)
         else:
             c = len(self.cat_ids)
             dmasks = np.zeros((c, img.shape[0], img.shape[1]), np.uint8)
@@ -176,11 +176,11 @@ class MultiCocoDataset(BaseDataset):
                 mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
                 cv2.drawContours(dmasks[label], [mask], -1, 1, cv2.FILLED)
 
-            dmasks = dmasks.transpose(1, 2, 0)
+        dmasks = dmasks.transpose(1, 2, 0)
 
-            if self.extra_super:
-                fmask = np.max(dmasks, axis=2)[:, :, None]
-                dmasks = np.concatenate([fmask, dmasks], axis=2)
+        if self.extra_super:
+            fmask = np.max(dmasks, axis=2)[:, :, None]
+            dmasks = np.concatenate([fmask, dmasks], axis=2)
 
         return dmasks
 
@@ -207,7 +207,7 @@ class MultiCocoDataset(BaseDataset):
         if len(ann_info['labels']) > 0:
             if 4 in ann_info['labels']:
                 label[1] = 1
-            elif 2 in ann_info['labels']:
+            if 2 in ann_info['labels']:
                 label[0] = 1
 
         return ori_img, img, dmasks, label, img_info['file_name']
@@ -227,13 +227,10 @@ class MultiCocoDataset(BaseDataset):
         if mask is None:
             mask = torch.from_numpy(np.array([-1]))
         else:
-            if 1 in mask[3]:
+            if 1 in mask[1]:
                 label[0] = 1
-            elif 1 in mask[5]:
+            if 1 in mask[2]:
                 label[1] = 1
-
-        if self.spec_class is not None:
-            mask = mask[0]
 
         if self.label_epsilon > 0:
             mask = self.label_smoothing(mask)

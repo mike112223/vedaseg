@@ -37,7 +37,7 @@ data = dict(
             extra_super=True,
         ),
         bitransforms=[
-            dict(type='Blend', image_value=(255., 255., 255.), mask_value=ignore_label, mixup_alpha=1.5, mixup_beta=1.5),
+            dict(type='Blend', image_value=(255., 255., 255.), mask_value=ignore_label),
         ],
         transforms=[
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -270,4 +270,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '0,1'
+gpu_id = '6,7'

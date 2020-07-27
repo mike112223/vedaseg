@@ -120,7 +120,11 @@ class Runner(object):
 
         self.optim.zero_grad()
 
+        # print(label[1])
+        # label = label[0]
+
         # for i in range(len(img)):
+
         #     mean = (123.675, 116.280, 103.530)
         #     std = (58.395, 57.120, 57.375)
         #     mean = np.reshape(np.array(mean, dtype=np.float32), [1, 1, 3])
@@ -128,7 +132,7 @@ class Runner(object):
         #     denominator = np.reciprocal(std, dtype=np.float32)
         #     cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
         #     for j in range(len(label[i])):
-        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), label[i, j].numpy().astype(np.uint8) * 255)
+        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), (label[i, j].numpy() * 255).astype(np.uint8))
 
         # import pdb
         # pdb.set_trace()
@@ -150,10 +154,11 @@ class Runner(object):
         loss.backward()
         self.optim.step()
 
-        if isinstance(pred, tuple):
-            pred = pred[0]
-
         with torch.no_grad():
+
+            if isinstance(label, (tuple, list)):
+                pred = pred[0]
+                label = label[0]
 
             '''
             import matplotlib.pyplot as plt
@@ -181,9 +186,6 @@ class Runner(object):
             #             osp.join(self.workdir, 'pred%d_%d.png' % (i, self.iter)),
             #             255 * pred_label.cpu().numpy()[i].astype(np.uint8))
 
-            if isinstance(label, (tuple, list)):
-                label = label[0]
-
             self.metric.add(pred.cpu().numpy(), label.cpu().numpy())
             miou, ious = self.metric.miou()
         if self.iter != 0 and self.iter % 10 == 0:
@@ -198,9 +200,19 @@ class Runner(object):
         with torch.no_grad():
             if self.gpu:
                 img = img.cuda()
-                label = label.cuda()
+                if isinstance(label, (tuple, list)):
+                    mask_label, cls_label = label
+                    mask_label = mask_label.cuda()
+                    cls_label = cls_label.cuda()
+                    label = (mask_label, cls_label)
+                else:
+                    label = label.cuda()
 
             pred = self.model(img)
+
+            if isinstance(label, (tuple, list)):
+                pred = pred[0]
+                label = label[0]
 
             if not self.multilabel:
                 prob = pred.softmax(dim=1)

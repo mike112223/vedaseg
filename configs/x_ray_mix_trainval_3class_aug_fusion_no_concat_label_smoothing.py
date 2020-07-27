@@ -24,6 +24,7 @@ multilabel = True
 
 img_norm_cfg = dict(mean=(123.675, 116.280, 103.530), std=(58.395, 57.120, 57.375))
 ignore_label = 255
+label_epsilon = 0.01
 
 dataset_type = 'CocoDataset'
 dataset_root = 'data/tianchi/'
@@ -35,12 +36,17 @@ data = dict(
             data_root=dataset_root,
             img_prefix='jinnan2_round2_train_20190401',
             extra_super=True,
+            label_epsilon=label_epsilon,
+            spec_class=[3, 5],
         ),
-        bitransforms=[
-            dict(type='Blend', image_value=(255., 255., 255.), mask_value=ignore_label, mixup_alpha=1.5, mixup_beta=1.5),
-        ],
+        # bitransforms=[
+        #     dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+        # ],
         transforms=[
+            dict(type='RandomRotate', degrees=180, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='HorizontalFlip'),
+            dict(type='VerticalFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
@@ -60,6 +66,7 @@ data = dict(
             data_root=dataset_root,
             img_prefix='jinnan2_round2_train_20190401',
             extra_super=True,
+            spec_class=[3, 5],
         ),
         transforms=[
             dict(type='PadIfNeeded', size=(993, 1153), image_value=img_norm_cfg['mean'], mask_value=ignore_label),
@@ -79,7 +86,7 @@ data = dict(
 )
 
 # 3. model
-nclasses = 6
+nclasses = 3
 model = dict(
     # model/encoder
     encoder=dict(
@@ -249,7 +256,11 @@ model = dict(
 resume = None
 
 # 4. criterion
-criterion = dict(type='RectBCELoss', ignore_index=ignore_label)
+criterion = dict(
+    type='RectBCELoss',
+    label_epsilon=label_epsilon,
+    ignore_index=ignore_label
+)
 
 # 5. optim
 optimizer = dict(type='SGD', lr=0.05, momentum=0.9, weight_decay=0.0001)
@@ -261,7 +272,7 @@ lr_scheduler = dict(
     warm_up=50,
     max_epochs=max_epochs)
 
-# 7. runner
+# 7. runnerlabel_epsilon
 runner = dict(
     type='Runner',
     max_epochs=max_epochs,
@@ -270,4 +281,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '0,1'
+gpu_id = '2,5'

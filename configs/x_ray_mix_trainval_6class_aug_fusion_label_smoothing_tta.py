@@ -14,8 +14,8 @@ logger = dict(
 
 # 2. data
 test_cfg = dict(
-    scales=[0.75, 1.0],
-    bias=[0.25, 0.0],
+    scales=[0.75, 1.0, 1.25],
+    bias=[0.25, 0.0, -0.25],
     flips=[2, 3],
 )
 
@@ -50,7 +50,7 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
+            batch_size=16,
             num_workers=4,
             shuffle=True,
             drop_last=False,

@@ -376,12 +376,13 @@ class ColorJitter(tt.ColorJitter):
 
 @TRANSFORMS.register_module
 class Blend:
-    def __init__(self, image_value, mask_value, p=0.5, mixup_alpha=1.5):
+    def __init__(self, image_value, mask_value, p=0.5, mixup_alpha=0.2, mixup_beta=0.4):
         self.p = p
         self.image_value = image_value
         self.mask_value = mask_value
         self.channel = len(image_value)
         self.mixup_alpha = mixup_alpha
+        self.mixup_beta = mixup_beta
 
         # cv.addWeighted(src1, alpha, src2, beta, gamma
 
@@ -398,7 +399,7 @@ class Blend:
             target_height = max(h1, h2)
             target_width = max(w1, w2)
 
-            alpha = random.betavariate(self.mixup_alpha, self.mixup_alpha)
+            alpha = random.betavariate(self.mixup_alpha, self.mixup_beta)
             if alpha < 0.5:
                 alpha = 1 - alpha
 

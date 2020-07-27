@@ -58,7 +58,7 @@ class MultiRectBCELoss(nn.Module):
         loss_mask = self.loss_weight * F.binary_cross_entropy_with_logits(
             mask_score[mask], mask_label.float()[mask], reduction=reduction)
 
-        loss_cls = self.loss_weight * F.binary_cross_entropy_with_logits(
+        loss_cls = 0.04 * F.binary_cross_entropy_with_logits(
             cls_score, cls_label.float(), reduction=reduction)
 
-        return loss_cls + loss_mask
+        return loss_mask + loss_cls

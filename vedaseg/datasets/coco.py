@@ -163,10 +163,10 @@ class CocoDataset(BaseDataset):
 
     def draw_mask(self, img, ann_info):
         if self.spec_class is not None:
-            dmasks = np.zeros((img.shape[0], img.shape[1], 1), np.uint8)
-            for mask in ann_info['masks']:
+            dmasks = np.zeros((len(self.spec_class), img.shape[0], img.shape[1]), np.uint8)
+            for mask, label in zip(ann_info['masks'], ann_info['labels']):
                 mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
-                cv2.drawContours(dmasks[:, :, 0], [mask], -1, 1, cv2.FILLED)
+                cv2.drawContours(dmasks[self.spec_class.index(label + 1)], [mask], -1, 1, cv2.FILLED)
         else:
             c = len(self.cat_ids)
             dmasks = np.zeros((c, img.shape[0], img.shape[1]), np.uint8)
@@ -174,11 +174,11 @@ class CocoDataset(BaseDataset):
                 mask = np.asarray(mask).reshape(-1, 1, 2).astype(np.int32)
                 cv2.drawContours(dmasks[label], [mask], -1, 1, cv2.FILLED)
 
-            dmasks = dmasks.transpose(1, 2, 0)
+        dmasks = dmasks.transpose(1, 2, 0)
 
-            if self.extra_super:
-                fmask = np.max(dmasks, axis=2)[:, :, None]
-                dmasks = np.concatenate([fmask, dmasks], axis=2)
+        if self.extra_super:
+            fmask = np.max(dmasks, axis=2)[:, :, None]
+            dmasks = np.concatenate([fmask, dmasks], axis=2)
 
         return dmasks
 
@@ -187,6 +187,7 @@ class CocoDataset(BaseDataset):
         #     pool = np.where(self.norm_flag == self.norm_flag[idx])[0]
         # else:
         #     pool = np.where(self.norm_flag != self.norm_flag[idx])[0]
+        # return np.random.choice(pool)
         return np.random.choice(range(len(self)))
 
     def _get_img_info(self, idx):
@@ -213,8 +214,8 @@ class CocoDataset(BaseDataset):
 
         img, mask = self.process(img, dmasks, img2, dmasks2)
 
-        if self.spec_class is not None:
-            mask = mask[0]
+        # if self.spec_class is not None:
+        #     mask = mask[0]
 
         if self.label_epsilon > 0:
             mask = self.label_smoothing(mask)
