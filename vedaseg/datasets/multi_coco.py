@@ -200,11 +200,10 @@ class MultiCocoDataset(BaseDataset):
         ori_img = img.copy()
 
         dmasks = self.draw_mask(img, ann_info)
-        if len(ann_info['masks']) == 1 and ann_info['masks'][0] == []:
-            dmasks[:] = 255
 
         label = np.array([0, 0])
-        if len(ann_info['labels']) > 0:
+        if len(ann_info['masks']) == 0 and len(ann_info['labels']) > 0:
+            dmasks[:] = 255
             if 4 in ann_info['labels']:
                 label[1] = 1
             if 2 in ann_info['labels']:
@@ -215,6 +214,7 @@ class MultiCocoDataset(BaseDataset):
     def __getitem__(self, idx):
 
         ori_img, img, dmasks, label, path = self._get_img_info(idx)
+        # print(path)
 
         if len(self.transform.bitransforms) > 0:
             idx2 = self._rand_another(idx)
@@ -224,13 +224,10 @@ class MultiCocoDataset(BaseDataset):
 
         img, mask = self.process(img, dmasks, img2, dmasks2)
 
-        if mask is None:
-            mask = torch.from_numpy(np.array([-1]))
-        else:
-            if 1 in mask[1]:
-                label[0] = 1
-            if 1 in mask[2]:
-                label[1] = 1
+        if 1 in mask[1]:
+            label[0] = 1
+        if 1 in mask[2]:
+            label[1] = 1
 
         if self.label_epsilon > 0:
             mask = self.label_smoothing(mask)

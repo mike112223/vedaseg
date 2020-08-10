@@ -37,19 +37,16 @@ data = dict(
             extra_super=True,
         ),
         bitransforms=[
-            dict(type='Concat', p=1., image_value=img_norm_cfg['mean'], mask_value=ignore_label),
+            dict(type='Blend', image_value=(255., 255., 255.), mask_value=ignore_label, mixup_alpha=1.5, mixup_beta=1.5),
         ],
         transforms=[
-            dict(type='RandomRotate', degrees=180, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
             dict(type='RandomCrop', height=513, width=513, image_value=img_norm_cfg['mean'], mask_value=ignore_label),
-            dict(type='HorizontalFlip'),
-            dict(type='VerticalFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ToTensor'),
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
+            batch_size=16,
             num_workers=4,
             shuffle=True,
             drop_last=False,
@@ -72,7 +69,7 @@ data = dict(
         ],
         loader=dict(
             type='DataLoader',
-            batch_size=8,
+            batch_size=16,
             num_workers=4,
             shuffle=False,
             drop_last=False,
@@ -273,4 +270,4 @@ runner = dict(
 )
 
 # 8. device
-gpu_id = '1'
+gpu_id = '8,9'

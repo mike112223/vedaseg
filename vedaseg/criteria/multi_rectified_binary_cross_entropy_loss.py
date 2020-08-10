@@ -47,6 +47,8 @@ class MultiRectBCELoss(nn.Module):
 
         mask = (mask_label != self.ignore_index)
 
+        # print(mask.sum())
+
         if self.label_epsilon < 0:
             mask[:, 1:, :, :] &= mask_label[:, 0:1, :, :] == 1
         else:
@@ -55,10 +57,13 @@ class MultiRectBCELoss(nn.Module):
         # import pdb
         # pdb.set_trace()
 
-        loss_mask = self.loss_weight * F.binary_cross_entropy_with_logits(
-            mask_score[mask], mask_label.float()[mask], reduction=reduction)
-
-        loss_cls = 0.04 * F.binary_cross_entropy_with_logits(
+        loss = 0.04 * F.binary_cross_entropy_with_logits(
             cls_score, cls_label.float(), reduction=reduction)
 
-        return loss_mask + loss_cls
+        if len(mask_score[mask]) > 0:
+            loss_mask = self.loss_weight * F.binary_cross_entropy_with_logits(
+                mask_score[mask], mask_label.float()[mask], reduction=reduction)
+
+            loss += loss_mask
+
+        return loss

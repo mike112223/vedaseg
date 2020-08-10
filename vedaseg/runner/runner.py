@@ -132,7 +132,7 @@ class Runner(object):
         #     denominator = np.reciprocal(std, dtype=np.float32)
         #     cv2.imwrite('workdir/debug/img_%d_%d.png'%(self.iter, i), (img[i].cpu().numpy().transpose(1, 2, 0)/ denominator + mean).astype(np.uint8))
         #     for j in range(len(label[i])):
-        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), (label[i, j].numpy() * 255).astype(np.uint8))
+        #         cv2.imwrite('workdir/debug/label_%d_%d_%d.png' % (self.iter, i, j), (label[i, j].numpy()).astype(np.uint8))
 
         # import pdb
         # pdb.set_trace()
